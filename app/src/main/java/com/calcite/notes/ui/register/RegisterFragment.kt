@@ -61,7 +61,7 @@ class RegisterFragment : Fragment() {
                     binding.btnRegister.isEnabled = true
                     binding.progressBar.visibility = View.GONE
                     Toast.makeText(requireContext(), "注册成功", Toast.LENGTH_SHORT).show()
-                    findNavController().navigate(R.id.action_registerFragment_to_homeFragment)
+                    findNavController().navigate(R.id.action_registerFragment_to_noteEditorFragment)
                 }
 
                 is Result.Error -> {

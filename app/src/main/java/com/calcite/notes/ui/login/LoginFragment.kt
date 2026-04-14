@@ -60,7 +60,7 @@ class LoginFragment : Fragment() {
                     binding.btnLogin.isEnabled = true
                     binding.progressBar.visibility = View.GONE
                     Toast.makeText(requireContext(), "登录成功", Toast.LENGTH_SHORT).show()
-                    findNavController().navigate(R.id.action_loginFragment_to_homeFragment)
+                    findNavController().navigate(R.id.action_loginFragment_to_noteEditorFragment)
                 }
 
                 is Result.Error -> {

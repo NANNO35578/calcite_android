@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/menu_notes"
+        android:icon="@drawable/ic_launcher_foreground"
+        android:title="笔记列表" />
+
+    <item
+        android:id="@+id/menu_new_note"
+        android:icon="@drawable/ic_launcher_foreground"
+        android:title="新建笔记" />
+
+    <item
+        android:id="@+id/menu_ocr"
+        android:icon="@drawable/ic_launcher_foreground"
+        android:title="OCR" />
+
+    <item
+        android:id="@+id/menu_search"
+        android:icon="@drawable/ic_launcher_foreground"
+        android:title="搜索" />
+
+    <item
+        android:id="@+id/menu_tools"
+        android:icon="@drawable/ic_launcher_foreground"
+        android:title="工具" />
+
+</menu>
