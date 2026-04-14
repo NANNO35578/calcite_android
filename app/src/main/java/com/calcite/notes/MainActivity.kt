@@ -14,12 +14,21 @@ import com.calcite.notes.data.remote.RetrofitClient
 import com.calcite.notes.data.repository.NoteRepository
 import com.calcite.notes.databinding.ActivityMainBinding
 import com.calcite.notes.ui.main.NoteListFragment
+import com.calcite.notes.ui.main.ToolPanelFragment
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var navController: NavController
+
+    private var currentNoteId: Long = 0L
+
+    fun setCurrentNoteId(noteId: Long) {
+        currentNoteId = noteId
+    }
+
+    fun getCurrentNoteId(): Long = currentNoteId
 
     private fun createNewNoteAndEdit() {
         lifecycleScope.launch {
@@ -49,10 +58,11 @@ class MainActivity : AppCompatActivity() {
             .findFragmentById(R.id.nav_host_fragment) as NavHostFragment
         navController = navHostFragment.navController
 
-        // 将 NoteListFragment 嵌入左抽屉
+        // 将 NoteListFragment 嵌入左抽屉，ToolPanelFragment 嵌入右抽屉
         if (savedInstanceState == null) {
             supportFragmentManager.beginTransaction()
                 .replace(R.id.left_drawer, NoteListFragment())
+                .replace(R.id.right_drawer, ToolPanelFragment())
                 .commit()
         }
 
@@ -85,10 +95,13 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // 根据当前页面控制 BottomNavigationView 显隐
+        // 根据当前页面控制 BottomNavigationView 显隐，并重置当前笔记ID
         navController.addOnDestinationChangedListener { _, destination, _ ->
             val isAuthPage = destination.id == R.id.loginFragment || destination.id == R.id.registerFragment
             binding.bottomNav.visibility = if (isAuthPage) android.view.View.GONE else android.view.View.VISIBLE
+            if (destination.id != R.id.noteEditorFragment) {
+                currentNoteId = 0L
+            }
         }
 
         // 全面屏适配：状态栏与导航栏 insets

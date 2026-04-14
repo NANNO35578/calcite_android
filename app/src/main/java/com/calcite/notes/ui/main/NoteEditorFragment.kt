@@ -12,6 +12,7 @@ import android.widget.Toast
 import androidx.core.os.bundleOf
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import com.calcite.notes.MainActivity
 import com.calcite.notes.data.remote.RetrofitClient
 import com.calcite.notes.data.repository.NoteRepository
 import com.calcite.notes.databinding.FragmentNoteEditorBinding
@@ -43,6 +44,7 @@ class NoteEditorFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         markwon = Markwon.create(requireContext())
+        (activity as? MainActivity)?.setCurrentNoteId(viewModel.noteId)
 
         binding.btnPreview.setOnClickListener {
             val next = viewModel.isPreview.value != true
@@ -74,6 +76,7 @@ class NoteEditorFragment : Fragment() {
                 if (viewModel.isPreview.value == true) {
                     markwon.setMarkdown(binding.tvPreview, it.content)
                 }
+                (activity as? MainActivity)?.setCurrentNoteId(it.id)
             }
         }
 

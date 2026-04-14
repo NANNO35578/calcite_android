@@ -70,6 +70,8 @@ dependencies {
     implementation(libs.androidx.fragment.ktx)
     implementation(libs.androidx.activity.ktx)
 
+    implementation(libs.androidx.swiperefreshlayout)
+
     // Markdown
     implementation(libs.markwon.core)
     implementation(libs.markwon.ext.strikethrough)
