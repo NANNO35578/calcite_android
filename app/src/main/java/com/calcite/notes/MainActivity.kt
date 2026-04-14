@@ -7,15 +7,37 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.GravityCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
+import com.calcite.notes.data.remote.RetrofitClient
+import com.calcite.notes.data.repository.NoteRepository
 import com.calcite.notes.databinding.ActivityMainBinding
 import com.calcite.notes.ui.main.NoteListFragment
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var navController: NavController
+
+    private fun createNewNoteAndEdit() {
+        lifecycleScope.launch {
+            val repo = NoteRepository(RetrofitClient.getApiService(this@MainActivity))
+            val result = repo.createNote("未命名笔记", "")
+            if (result is com.calcite.notes.utils.Result.Success) {
+                val bundle = Bundle().apply { putLong("noteId", result.data.note_id) }
+                if (navController.currentDestination?.id != R.id.noteEditorFragment) {
+                    navController.navigate(R.id.noteEditorFragment, bundle)
+                } else {
+                    // 已经在编辑器页面，重新导航到新笔记
+                    navController.navigate(R.id.noteEditorFragment, bundle)
+                }
+            } else {
+                Toast.makeText(this@MainActivity, "创建笔记失败", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,7 +64,7 @@ class MainActivity : AppCompatActivity() {
                     true
                 }
                 R.id.menu_new_note -> {
-                    Toast.makeText(this, "新建笔记", Toast.LENGTH_SHORT).show()
+                    createNewNoteAndEdit()
                     true
                 }
                 R.id.menu_ocr -> {
