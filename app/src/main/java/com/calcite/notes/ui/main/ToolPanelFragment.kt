@@ -1,27 +1,36 @@
 package com.calcite.notes.ui.main
 
 import android.app.AlertDialog
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ArrayAdapter
 import android.widget.EditText
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
-import androidx.recyclerview.widget.LinearLayoutManager
 import com.calcite.notes.MainActivity
 import com.calcite.notes.R
 import com.calcite.notes.data.remote.RetrofitClient
 import com.calcite.notes.data.repository.FileRepository
 import com.calcite.notes.data.repository.TagRepository
 import com.calcite.notes.databinding.FragmentToolPanelBinding
-import com.calcite.notes.databinding.ItemTagChipBinding
 import com.calcite.notes.model.FileItem
 import com.calcite.notes.model.Tag
 import com.calcite.notes.utils.Result
 import com.google.android.material.chip.Chip
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
+import java.io.File
+import java.io.FileOutputStream
 
 class ToolPanelFragment : Fragment() {
 
@@ -35,6 +44,10 @@ class ToolPanelFragment : Fragment() {
 
     private var currentNoteId: Long = 0L
 
+    private val filePickerLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        uri?.let { uploadFile(it) }
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -47,9 +60,10 @@ class ToolPanelFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        binding.btnAddTag.setOnClickListener {
-            showCreateTagDialog()
-        }
+        binding.btnAddTag.setOnClickListener { showCreateTagDialog() }
+        binding.btnUploadFile.setOnClickListener { filePickerLauncher.launch("*/*") }
+
+        setupStatusFilter()
 
         binding.swipeRefresh.setOnRefreshListener {
             viewModel.loadAll()
@@ -59,15 +73,12 @@ class ToolPanelFragment : Fragment() {
         viewModel.tags.observe(viewLifecycleOwner) { tags ->
             renderTags(tags, viewModel.boundTagIds.value ?: emptySet())
         }
-
         viewModel.boundTagIds.observe(viewLifecycleOwner) { boundIds ->
             renderTags(viewModel.tags.value ?: emptyList(), boundIds)
         }
-
         viewModel.files.observe(viewLifecycleOwner) { files ->
             renderFiles(files)
         }
-
         viewModel.operationResult.observe(viewLifecycleOwner) { result ->
             when (result) {
                 is Result.Loading -> {}
@@ -86,6 +97,25 @@ class ToolPanelFragment : Fragment() {
         viewModel.setNoteId(noteId)
     }
 
+    private fun setupStatusFilter() {
+        val options = listOf("全部", "完成", "处理中", "失败")
+        val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, options)
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        binding.spinnerStatusFilter.adapter = adapter
+        binding.spinnerStatusFilter.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
+                val status = when (position) {
+                    1 -> "done"
+                    2 -> "processing"
+                    3 -> "failed"
+                    else -> null
+                }
+                viewModel.setFileStatusFilter(status)
+            }
+            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+        }
+    }
+
     private fun renderTags(tags: List<Tag>, boundIds: Set<Long>) {
         binding.chipGroupTags.removeAllViews()
         for (tag in tags) {
@@ -93,9 +123,7 @@ class ToolPanelFragment : Fragment() {
                 text = tag.name
                 isCheckable = true
                 isChecked = boundIds.contains(tag.id)
-                setOnCheckedChangeListener { _, _ ->
-                    viewModel.toggleTag(tag.id)
-                }
+                setOnCheckedChangeListener { _, _ -> viewModel.toggleTag(tag.id) }
                 setOnLongClickListener {
                     showTagMenu(tag)
                     true
@@ -135,8 +163,85 @@ class ToolPanelFragment : Fragment() {
             }
             itemBinding.tvStatus.text = statusText
             itemBinding.tvStatus.setTextColor(ContextCompat.getColor(requireContext(), color))
+            itemBinding.root.setOnLongClickListener {
+                showFileMenu(file)
+                true
+            }
             binding.layoutFiles.addView(itemBinding.root)
         }
+    }
+
+    private fun showFileMenu(file: FileItem) {
+        val options = arrayOf("复制链接", "删除")
+        AlertDialog.Builder(requireContext())
+            .setTitle(file.file_name)
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> copyToClipboard(file.url)
+                    1 -> showDeleteFileConfirm(file)
+                }
+            }
+            .show()
+    }
+
+    private fun copyToClipboard(text: String) {
+        if (text.isBlank()) {
+            Toast.makeText(requireContext(), "链接为空", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clip = ClipData.newPlainText("链接", text)
+        clipboard.setPrimaryClip(clip)
+        Toast.makeText(requireContext(), "链接已复制", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun showDeleteFileConfirm(file: FileItem) {
+        AlertDialog.Builder(requireContext())
+            .setTitle("删除文件")
+            .setMessage("确定删除文件 \"${file.file_name}\" 吗？")
+            .setPositiveButton("删除") { _, _ ->
+                viewModel.deleteFile(file.id)
+            }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+
+    private fun uploadFile(uri: Uri) {
+        val part = uriToMultipartPart(uri) ?: return
+        viewModel.uploadFile(part, currentNoteId.takeIf { it != 0L })
+    }
+
+    private fun uriToMultipartPart(uri: Uri): MultipartBody.Part? {
+        val context = requireContext()
+        val contentResolver = context.contentResolver
+        val inputStream = contentResolver.openInputStream(uri) ?: return null
+        val mimeType = contentResolver.getType(uri) ?: "application/octet-stream"
+        val fileName = getFileNameFromUri(uri) ?: "unknown"
+        val tempFile = File(context.cacheDir, fileName)
+        FileOutputStream(tempFile).use { output ->
+            inputStream.copyTo(output)
+        }
+        val requestFile = tempFile.asRequestBody(mimeType.toMediaTypeOrNull())
+        return MultipartBody.Part.createFormData("file", fileName, requestFile)
+    }
+
+    private fun getFileNameFromUri(uri: Uri): String? {
+        var result: String? = null
+        if (uri.scheme == "content") {
+            val cursor = requireContext().contentResolver.query(uri, null, null, null, null)
+            cursor?.use {
+                if (it.moveToFirst()) {
+                    val index = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                    if (index >= 0) {
+                        result = it.getString(index)
+                    }
+                }
+            }
+        }
+        if (result == null) {
+            result = uri.lastPathSegment
+        }
+        return result
     }
 
     private fun showTagMenu(tag: Tag) {

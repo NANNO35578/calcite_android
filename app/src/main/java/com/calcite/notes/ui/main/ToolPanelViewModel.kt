@@ -11,6 +11,7 @@ import com.calcite.notes.model.FileItem
 import com.calcite.notes.model.Tag
 import com.calcite.notes.utils.Result
 import kotlinx.coroutines.launch
+import okhttp3.MultipartBody
 
 class ToolPanelViewModel(
     private val tagRepository: TagRepository,
@@ -30,6 +31,7 @@ class ToolPanelViewModel(
     val operationResult: LiveData<Result<String>> = _operationResult
 
     private var currentNoteId: Long = 0L
+    private var currentFileStatusFilter: String? = null
 
     fun setNoteId(noteId: Long) {
         if (currentNoteId != noteId) {
@@ -70,9 +72,44 @@ class ToolPanelViewModel(
 
     private fun loadFiles() {
         viewModelScope.launch {
-            when (val result = fileRepository.getFileList()) {
+            when (val result = fileRepository.getFileList(currentFileStatusFilter)) {
                 is Result.Success -> _files.value = result.data
                 else -> {}
+            }
+        }
+    }
+
+    fun setFileStatusFilter(status: String?) {
+        currentFileStatusFilter = status
+        loadFiles()
+    }
+
+    fun uploadFile(filePart: MultipartBody.Part, noteId: Long? = null) {
+        viewModelScope.launch {
+            _operationResult.value = Result.Loading
+            val result = fileRepository.uploadFile(filePart, noteId)
+            _operationResult.value = when (result) {
+                is Result.Success -> {
+                    loadFiles()
+                    Result.Success("文件上传已提交")
+                }
+                is Result.Error -> result
+                else -> Result.Error("未知错误")
+            }
+        }
+    }
+
+    fun deleteFile(fileId: Long) {
+        viewModelScope.launch {
+            _operationResult.value = Result.Loading
+            val result = fileRepository.deleteFile(fileId)
+            _operationResult.value = when (result) {
+                is Result.Success -> {
+                    loadFiles()
+                    Result.Success("文件已删除")
+                }
+                is Result.Error -> result
+                else -> Result.Error("未知错误")
             }
         }
     }

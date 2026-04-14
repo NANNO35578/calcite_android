@@ -5,10 +5,13 @@ import com.calcite.notes.model.BindTagRequest
 import com.calcite.notes.model.CreateFolderRequest
 import com.calcite.notes.model.CreateNoteRequest
 import com.calcite.notes.model.CreateTagRequest
+import com.calcite.notes.model.DeleteFileRequest
 import com.calcite.notes.model.DeleteFolderRequest
 import com.calcite.notes.model.DeleteNoteRequest
 import com.calcite.notes.model.DeleteTagRequest
 import com.calcite.notes.model.FileItem
+import com.calcite.notes.model.FileStatusData
+import com.calcite.notes.model.FileUploadData
 import com.calcite.notes.model.Folder
 import com.calcite.notes.model.FolderCreateData
 import com.calcite.notes.model.LoginData
@@ -16,6 +19,8 @@ import com.calcite.notes.model.LoginRequest
 import com.calcite.notes.model.Note
 import com.calcite.notes.model.NoteCreateData
 import com.calcite.notes.model.NoteDetail
+import com.calcite.notes.model.OcrRecognizeData
+import com.calcite.notes.model.OcrStatusData
 import com.calcite.notes.model.RegisterData
 import com.calcite.notes.model.RegisterRequest
 import com.calcite.notes.model.SearchResultItem
@@ -25,9 +30,13 @@ import com.calcite.notes.model.UpdateFolderRequest
 import com.calcite.notes.model.UpdateNoteRequest
 import com.calcite.notes.model.UpdateTagRequest
 import com.calcite.notes.model.UserProfile
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.Multipart
 import retrofit2.http.POST
+import retrofit2.http.Part
 import retrofit2.http.Query
 
 interface ApiService {
@@ -96,10 +105,34 @@ interface ApiService {
     suspend fun bindTags(@Body request: BindTagRequest): ApiResponse<Unit>
 
     // File
+    @Multipart
+    @POST("/api/file/upload")
+    suspend fun uploadFile(
+        @Part file: MultipartBody.Part,
+        @Part("note_id") noteId: RequestBody? = null
+    ): ApiResponse<FileUploadData>
+
+    @POST("/api/file/delete")
+    suspend fun deleteFile(@Body request: DeleteFileRequest): ApiResponse<Unit>
+
     @GET("/api/file/list")
     suspend fun getFileList(
         @Query("user_id") userId: Long? = null,
         @Query("note_id") noteId: Long? = null,
         @Query("status") status: String? = null
     ): ApiResponse<List<FileItem>>
+
+    @GET("/api/file/status")
+    suspend fun getFileStatus(@Query("file_id") fileId: String): ApiResponse<FileStatusData>
+
+    @GET("/api/file/info")
+    suspend fun getFileInfo(@Query("file_id") fileId: String): ApiResponse<FileItem>
+
+    // OCR
+    @Multipart
+    @POST("/api/ocr/recognize")
+    suspend fun ocrRecognize(@Part file: MultipartBody.Part): ApiResponse<OcrRecognizeData>
+
+    @GET("/api/ocr/status")
+    suspend fun getOcrStatus(@Query("file_id") fileId: String): ApiResponse<OcrStatusData>
 }
