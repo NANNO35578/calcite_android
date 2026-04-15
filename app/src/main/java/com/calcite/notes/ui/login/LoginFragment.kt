@@ -9,7 +9,8 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import com.calcite.notes.R
-import com.calcite.notes.data.local.TokenDataStore
+import com.calcite.notes.data.local.AppDataStore
+import com.calcite.notes.data.local.database.AppDatabase
 import com.calcite.notes.data.remote.RetrofitClient
 import com.calcite.notes.data.repository.AuthRepository
 import com.calcite.notes.databinding.FragmentLoginBinding
@@ -22,9 +23,9 @@ class LoginFragment : Fragment() {
 
     private val viewModel: LoginViewModel by viewModels {
         val apiService = RetrofitClient.getApiService(requireContext())
-        val tokenDataStore = TokenDataStore(requireContext())
-        val repository = AuthRepository(apiService, tokenDataStore)
-        LoginViewModel.Factory(repository)
+        val appDataStore = AppDataStore(requireContext())
+        val repository = AuthRepository(apiService, appDataStore)
+        LoginViewModel.Factory(repository, appDataStore)
     }
 
     override fun onCreateView(
@@ -60,7 +61,13 @@ class LoginFragment : Fragment() {
                     binding.btnLogin.isEnabled = true
                     binding.progressBar.visibility = View.GONE
                     Toast.makeText(requireContext(), "登录成功", Toast.LENGTH_SHORT).show()
-                    findNavController().navigate(R.id.action_loginFragment_to_noteEditorFragment)
+                    val noteId = viewModel.navigateToNoteId.value
+                    if (noteId != null && noteId > 0) {
+                        val bundle = Bundle().apply { putLong("noteId", noteId) }
+                        findNavController().navigate(R.id.action_loginFragment_to_noteEditorFragment, bundle)
+                    } else {
+                        findNavController().navigate(R.id.action_loginFragment_to_homeFragment)
+                    }
                 }
 
                 is Result.Error -> {

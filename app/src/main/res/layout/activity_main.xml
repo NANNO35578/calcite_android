@@ -55,12 +55,12 @@
         android:background="?android:attr/colorBackground"
         android:fitsSystemWindows="true">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:text="工具面板（占位）"
-            android:textSize="18sp" />
+<!--        <TextView-->
+<!--            android:layout_width="wrap_content"-->
+<!--            android:layout_height="wrap_content"-->
+<!--            android:layout_gravity="center"-->
+<!--            android:text="工具面板（占位）"-->
+<!--            android:textSize="18sp" />-->
     </FrameLayout>
 
 </androidx.drawerlayout.widget.DrawerLayout>

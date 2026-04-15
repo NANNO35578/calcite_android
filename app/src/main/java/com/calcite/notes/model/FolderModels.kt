@@ -3,8 +3,8 @@ package com.calcite.notes.model
 data class Folder(
     val id: Long,
     val name: String,
-    val parent_id: Long,
-    val created_at: String
+    val parent_id: Long?,
+    val created_at: String?
 )
 
 data class CreateFolderRequest(

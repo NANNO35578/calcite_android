@@ -1,6 +1,5 @@
 package com.calcite.notes.ui.main
 
-import android.app.AlertDialog
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -15,15 +14,12 @@ import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.calcite.notes.R
-import com.calcite.notes.data.local.TokenDataStore
-import com.calcite.notes.data.remote.RetrofitClient
-import com.calcite.notes.data.repository.FolderRepository
-import com.calcite.notes.data.repository.NoteRepository
-import com.calcite.notes.data.repository.UserRepository
 import com.calcite.notes.databinding.FragmentNoteListBinding
 import com.calcite.notes.ui.main.tree.TreeAdapter
 import com.calcite.notes.ui.main.tree.TreeNode
 import com.calcite.notes.utils.Result
+import com.google.android.material.bottomsheet.BottomSheetDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 class NoteListFragment : Fragment() {
 
@@ -31,12 +27,7 @@ class NoteListFragment : Fragment() {
     private val binding get() = _binding!!
 
     private val viewModel: NoteListViewModel by viewModels {
-        val api = RetrofitClient.getApiService(requireContext())
-        NoteListViewModel.Factory(
-            NoteRepository(api),
-            FolderRepository(api),
-            UserRepository(api, TokenDataStore(requireContext()))
-        )
+        NoteListViewModel.Factory(requireContext())
     }
 
     private lateinit var treeAdapter: TreeAdapter
@@ -58,8 +49,12 @@ class NoteListFragment : Fragment() {
             onNoteClick = { node ->
                 openNoteEditor(node.note.id)
             },
-            onFolderLongClick = { node, anchor ->
-                showFolderPopup(node)
+            onFolderLongClick = { node, _ ->
+                showFolderBottomSheet(node)
+                true
+            },
+            onNoteLongClick = { node, _ ->
+                showNoteBottomSheet(node)
                 true
             }
         )
@@ -70,7 +65,7 @@ class NoteListFragment : Fragment() {
         binding.btnNewNote.setOnClickListener { showCreateNoteDialog() }
         binding.btnNewFolder.setOnClickListener { showCreateFolderDialog() }
         binding.btnOcr.setOnClickListener {
-            Toast.makeText(requireContext(), "OCR 功能暂未实现", Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), "OCR 功能在主界面底部导航栏", Toast.LENGTH_SHORT).show()
         }
 
         binding.btnLogout.setOnClickListener {
@@ -100,17 +95,40 @@ class NoteListFragment : Fragment() {
         findNavController().navigate(R.id.noteEditorFragment, bundle)
     }
 
-    private fun showFolderPopup(node: TreeNode.FolderNode) {
-        val options = arrayOf("重命名", "删除")
-        AlertDialog.Builder(requireContext())
-            .setTitle(node.folder.name)
-            .setItems(options) { _, which ->
-                when (which) {
-                    0 -> showRenameFolderDialog(node)
-                    1 -> showDeleteFolderConfirm(node)
-                }
-            }
-            .show()
+    private fun showFolderBottomSheet(node: TreeNode.FolderNode) {
+        val dialog = BottomSheetDialog(requireContext())
+        val sheetView = layoutInflater.inflate(R.layout.bottom_sheet_folder_menu, null)
+        dialog.setContentView(sheetView)
+
+        sheetView.findViewById<View>(R.id.actionNewNote).setOnClickListener {
+            dialog.dismiss()
+            showCreateNoteDialog(node.folder.id)
+        }
+        sheetView.findViewById<View>(R.id.actionRename).setOnClickListener {
+            dialog.dismiss()
+            showRenameFolderDialog(node)
+        }
+        sheetView.findViewById<View>(R.id.actionDelete).setOnClickListener {
+            dialog.dismiss()
+            showDeleteFolderConfirm(node)
+        }
+        dialog.show()
+    }
+
+    private fun showNoteBottomSheet(node: TreeNode.NoteNode) {
+        val dialog = BottomSheetDialog(requireContext())
+        val sheetView = layoutInflater.inflate(R.layout.bottom_sheet_note_menu, null)
+        dialog.setContentView(sheetView)
+
+        sheetView.findViewById<View>(R.id.actionRename).setOnClickListener {
+            dialog.dismiss()
+            showRenameNoteDialog(node)
+        }
+        sheetView.findViewById<View>(R.id.actionDelete).setOnClickListener {
+            dialog.dismiss()
+            showDeleteNoteConfirm(node)
+        }
+        dialog.show()
     }
 
     private fun showRenameFolderDialog(node: TreeNode.FolderNode) {
@@ -118,13 +136,31 @@ class NoteListFragment : Fragment() {
             setText(node.folder.name)
             selectAll()
         }
-        AlertDialog.Builder(requireContext())
+        MaterialAlertDialogBuilder(requireContext())
             .setTitle("重命名文件夹")
             .setView(input)
             .setPositiveButton("确定") { _, _ ->
                 val name = input.text.toString().trim()
                 if (name.isNotEmpty()) {
-                    viewModel.renameFolder(node.folder.id, name, node.folder.parent_id)
+                    viewModel.renameFolder(node.folder.id, name)
+                }
+            }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+
+    private fun showRenameNoteDialog(node: TreeNode.NoteNode) {
+        val input = EditText(requireContext()).apply {
+            setText(node.note.title)
+            selectAll()
+        }
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("重命名笔记")
+            .setView(input)
+            .setPositiveButton("确定") { _, _ ->
+                val name = input.text.toString().trim()
+                if (name.isNotEmpty()) {
+                    viewModel.renameNote(node.note.id, name)
                 }
             }
             .setNegativeButton("取消", null)
@@ -132,17 +168,28 @@ class NoteListFragment : Fragment() {
     }
 
     private fun showDeleteFolderConfirm(node: TreeNode.FolderNode) {
-        AlertDialog.Builder(requireContext())
+        MaterialAlertDialogBuilder(requireContext())
             .setTitle("删除文件夹")
             .setMessage("确定删除文件夹 \"${node.folder.name}\" 及其所有内容吗？")
             .setPositiveButton("删除") { _, _ ->
-                viewModel.deleteFolder(node.folder.id, node.folder.parent_id)
+                viewModel.deleteFolder(node.folder.id)
             }
             .setNegativeButton("取消", null)
             .show()
     }
 
-    private fun showCreateNoteDialog() {
+    private fun showDeleteNoteConfirm(node: TreeNode.NoteNode) {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("删除笔记")
+            .setMessage("确定删除笔记 \"${node.note.title}\" 吗？")
+            .setPositiveButton("删除") { _, _ ->
+                viewModel.deleteNote(node.note.id)
+            }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+
+    private fun showCreateNoteDialog(preselectedFolderId: Long? = null) {
         val container = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(48, 24, 48, 24)
@@ -163,7 +210,14 @@ class NoteListFragment : Fragment() {
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         folderSpinner.adapter = adapter
 
-        AlertDialog.Builder(requireContext())
+        preselectedFolderId?.let { fid ->
+            val index = folders.indexOfFirst { it.id == fid }
+            if (index >= 0) {
+                folderSpinner.setSelection(index + 1)
+            }
+        }
+
+        MaterialAlertDialogBuilder(requireContext())
             .setTitle("新建笔记")
             .setView(container)
             .setPositiveButton("创建") { _, _ ->
@@ -198,7 +252,7 @@ class NoteListFragment : Fragment() {
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         folderSpinner.adapter = adapter
 
-        AlertDialog.Builder(requireContext())
+        MaterialAlertDialogBuilder(requireContext())
             .setTitle("新建文件夹")
             .setView(container)
             .setPositiveButton("创建") { _, _ ->

@@ -12,7 +12,8 @@ import com.calcite.notes.databinding.ItemTreeNoteBinding
 class TreeAdapter(
     private val onFolderClick: (TreeNode.FolderNode, Int) -> Unit,
     private val onNoteClick: (TreeNode.NoteNode) -> Unit,
-    private val onFolderLongClick: (TreeNode.FolderNode, View) -> Boolean
+    private val onFolderLongClick: (TreeNode.FolderNode, View) -> Boolean,
+    private val onNoteLongClick: (TreeNode.NoteNode, View) -> Boolean
 ) : ListAdapter<TreeNode, RecyclerView.ViewHolder>(TreeDiffCallback()) {
 
     companion object {
@@ -66,6 +67,7 @@ class TreeAdapter(
             binding.root.setPaddingRelative(paddingStart, 0, 0, 0)
             binding.tvName.text = node.note.title
             binding.root.setOnClickListener { onNoteClick(node) }
+            binding.root.setOnLongClickListener { onNoteLongClick(node, it) }
         }
     }
 }

@@ -22,8 +22,9 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="新建笔记"
-            android:textSize="12sp" />
+            app:icon="@drawable/ic_add_24"
+            app:iconGravity="textStart"
+            android:text="" />
 
         <Button
             android:id="@+id/btnNewFolder"
@@ -31,8 +32,9 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="新建文件夹"
-            android:textSize="12sp" />
+            app:icon="@drawable/ic_new_folder_24"
+            app:iconGravity="textStart"
+            android:text="" />
 
         <Button
             android:id="@+id/btnOcr"
@@ -40,8 +42,9 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="OCR"
-            android:textSize="12sp" />
+            app:icon="@drawable/ic_ocr_24"
+            app:iconGravity="textStart"
+            android:text="" />
     </LinearLayout>
 
     <!-- 文件树 RecyclerView -->
@@ -74,7 +77,7 @@
             android:layout_width="32dp"
             android:layout_height="32dp"
             android:contentDescription="用户"
-            android:src="@drawable/ic_launcher_foreground" />
+            android:src="@drawable/ic_user_24" />
 
         <TextView
             android:id="@+id/tvUsername"

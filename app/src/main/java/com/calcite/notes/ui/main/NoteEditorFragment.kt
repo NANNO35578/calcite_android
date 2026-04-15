@@ -25,8 +25,7 @@ class NoteEditorFragment : Fragment() {
     private val binding get() = _binding!!
 
     private val viewModel: NoteEditorViewModel by viewModels {
-        val api = RetrofitClient.getApiService(requireContext())
-        NoteEditorViewModel.Factory(NoteRepository(api), arguments?.getLong("noteId") ?: 0L)
+        NoteEditorViewModel.Factory(requireContext(), arguments?.getLong("noteId") ?: 0L)
     }
 
     private lateinit var markwon: Markwon

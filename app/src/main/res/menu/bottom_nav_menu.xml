@@ -3,27 +3,27 @@
 
     <item
         android:id="@+id/menu_notes"
-        android:icon="@drawable/ic_launcher_foreground"
+        android:icon="@drawable/ic_menu_24"
         android:title="笔记列表" />
 
     <item
         android:id="@+id/menu_new_note"
-        android:icon="@drawable/ic_launcher_foreground"
+        android:icon="@drawable/ic_add_24"
         android:title="新建笔记" />
 
     <item
         android:id="@+id/menu_ocr"
-        android:icon="@drawable/ic_launcher_foreground"
+        android:icon="@drawable/ic_ocr_24"
         android:title="OCR" />
 
     <item
         android:id="@+id/menu_search"
-        android:icon="@drawable/ic_launcher_foreground"
+        android:icon="@drawable/ic_search_24"
         android:title="搜索" />
 
     <item
         android:id="@+id/menu_tools"
-        android:icon="@drawable/ic_launcher_foreground"
+        android:icon="@drawable/ic_tool_24"
         android:title="工具" />
 
 </menu>

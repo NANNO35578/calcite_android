@@ -9,7 +9,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import com.calcite.notes.R
-import com.calcite.notes.data.local.TokenDataStore
+import com.calcite.notes.data.local.AppDataStore
 import com.calcite.notes.data.remote.RetrofitClient
 import com.calcite.notes.data.repository.AuthRepository
 import com.calcite.notes.databinding.FragmentRegisterBinding
@@ -22,8 +22,8 @@ class RegisterFragment : Fragment() {
 
     private val viewModel: RegisterViewModel by viewModels {
         val apiService = RetrofitClient.getApiService(requireContext())
-        val tokenDataStore = TokenDataStore(requireContext())
-        val repository = AuthRepository(apiService, tokenDataStore)
+        val appDataStore = AppDataStore(requireContext())
+        val repository = AuthRepository(apiService, appDataStore)
         RegisterViewModel.Factory(repository)
     }
 
@@ -61,7 +61,7 @@ class RegisterFragment : Fragment() {
                     binding.btnRegister.isEnabled = true
                     binding.progressBar.visibility = View.GONE
                     Toast.makeText(requireContext(), "注册成功", Toast.LENGTH_SHORT).show()
-                    findNavController().navigate(R.id.action_registerFragment_to_noteEditorFragment)
+                    findNavController().navigate(R.id.action_registerFragment_to_homeFragment)
                 }
 
                 is Result.Error -> {

@@ -1,15 +1,15 @@
 package com.calcite.notes.data.remote
 
-import com.calcite.notes.data.local.TokenDataStore
+import com.calcite.notes.data.local.AppDataStore
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import okhttp3.Interceptor
 
-class AuthInterceptor(private val tokenDataStore: TokenDataStore) : Interceptor {
+class AuthInterceptor(private val appDataStore: AppDataStore) : Interceptor {
 
     override fun intercept(chain: Interceptor.Chain): okhttp3.Response {
         val request = chain.request()
-        val token = runBlocking { tokenDataStore.token.first() }
+        val token = runBlocking { appDataStore.token.first() }
 
         val newRequest = if (!token.isNullOrEmpty()) {
             request.newBuilder()

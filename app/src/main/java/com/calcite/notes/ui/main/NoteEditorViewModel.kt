@@ -1,20 +1,28 @@
 package com.calcite.notes.ui.main
 
+import android.content.Context
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calcite.notes.data.local.AppDataStore
+import com.calcite.notes.data.local.dao.NoteDao
+import com.calcite.notes.data.local.entity.NoteEntity
+import com.calcite.notes.data.remote.RetrofitClient
 import com.calcite.notes.data.repository.NoteRepository
 import com.calcite.notes.model.NoteDetail
 import com.calcite.notes.utils.Result
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class NoteEditorViewModel(
+    private val context: Context,
     private val noteRepository: NoteRepository,
-    noteId: Long
+    private val noteDao: NoteDao,
+    private val appDataStore: AppDataStore,
+    val noteId: Long
 ) : ViewModel() {
 
     private val _noteDetail = MutableLiveData<NoteDetail?>(null)
@@ -36,29 +44,59 @@ class NoteEditorViewModel(
     private var lastSavedTitle: String = ""
     private var lastSavedContent: String = ""
 
-    val noteId: Long = noteId
-
     init {
         if (noteId != 0L) {
             loadNote()
+            viewModelScope.launch {
+                appDataStore.setCurrentNoteId(noteId)
+            }
         }
         startAutoSave()
+        observeLocalNote()
+    }
+
+    private fun observeLocalNote() {
+        if (noteId == 0L) return
+        viewModelScope.launch {
+            noteDao.getById(noteId).collect { entity ->
+                entity?.let {
+                    val detail = it.toNoteDetail()
+                    if (_noteDetail.value == null) {
+                        _noteDetail.value = detail
+                        lastSavedTitle = detail.title
+                        lastSavedContent = detail.content
+                    }
+                }
+            }
+        }
     }
 
     fun loadNote() {
         if (noteId == 0L) return
         viewModelScope.launch {
             _loadResult.value = Result.Loading
-            when (val result = noteRepository.getNoteDetail(noteId)) {
+            when (val result = noteRepository.getNoteDetail(context, noteId)) {
                 is Result.Success -> {
-                    _noteDetail.value = result.data
-                    lastSavedTitle = result.data.title
-                    lastSavedContent = result.data.content
+                    val data = result.data
+                    _noteDetail.value = data
+                    lastSavedTitle = data.title
+                    lastSavedContent = data.content
                     _hasUnsavedChanges.value = false
                     _loadResult.value = Result.Success(Unit)
                 }
                 is Result.Error -> {
-                    _loadResult.value = Result.Error(result.message)
+                    // 尝试本地
+                    val local = noteDao.getByIdSync(noteId)
+                    if (local != null) {
+                        val data = local.toNoteDetail()
+                        _noteDetail.value = data
+                        lastSavedTitle = data.title
+                        lastSavedContent = data.content
+                        _hasUnsavedChanges.value = false
+                        _loadResult.value = Result.Success(Unit)
+                    } else {
+                        _loadResult.value = Result.Error(result.message)
+                    }
                 }
                 else -> {}
             }
@@ -74,7 +112,6 @@ class NoteEditorViewModel(
         if (current != null) {
             _noteDetail.value = current.copy(title = title, content = content)
         } else {
-            // 新建笔记时 noteDetail 可能为空，需要临时存储
             _noteDetail.value = NoteDetail(
                 id = noteId,
                 title = title,
@@ -94,6 +131,7 @@ class NoteEditorViewModel(
         viewModelScope.launch {
             _saveResult.value = Result.Loading
             val result = noteRepository.updateNote(
+                context = context,
                 noteId = noteId,
                 title = current.title,
                 content = current.content,
@@ -125,13 +163,31 @@ class NoteEditorViewModel(
         autoSaveJob?.cancel()
     }
 
+    private fun NoteEntity.toNoteDetail(): NoteDetail = NoteDetail(
+        id = id,
+        title = title,
+        content = content,
+        summary = summary,
+        folder_id = folderId,
+        created_at = createdAt,
+        updated_at = updatedAt
+    )
+
     class Factory(
-        private val noteRepository: NoteRepository,
+        private val context: Context,
         private val noteId: Long
     ) : androidx.lifecycle.ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-            return NoteEditorViewModel(noteRepository, noteId) as T
+            val api = RetrofitClient.getApiService(context)
+            val db = com.calcite.notes.data.local.database.AppDatabase.getInstance(context)
+            return NoteEditorViewModel(
+                context,
+                NoteRepository(api, db.noteDao()),
+                db.noteDao(),
+                AppDataStore(context),
+                noteId
+            ) as T
         }
     }
 }

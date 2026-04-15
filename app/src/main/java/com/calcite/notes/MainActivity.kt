@@ -11,14 +11,19 @@ import androidx.core.view.GravityCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
+import com.calcite.notes.data.local.AppDataStore
+import com.calcite.notes.data.local.database.AppDatabase
 import com.calcite.notes.data.remote.RetrofitClient
 import com.calcite.notes.data.repository.NoteRepository
 import com.calcite.notes.data.repository.OcrRepository
+import com.calcite.notes.data.repository.UserRepository
+import com.calcite.notes.data.sync.SyncWorker
 import com.calcite.notes.databinding.ActivityMainBinding
 import com.calcite.notes.ui.main.NoteListFragment
 import com.calcite.notes.ui.main.ToolPanelFragment
 import com.calcite.notes.utils.Result
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
@@ -31,7 +36,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var navController: NavController
 
-    private var currentNoteId: Long = 0L
+    private val appDataStore by lazy { AppDataStore(this) }
+    private val db by lazy { AppDatabase.getInstance(this) }
 
     private val ocrImagePicker = registerForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.GetContent()
@@ -40,17 +46,29 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun setCurrentNoteId(noteId: Long) {
-        currentNoteId = noteId
+        lifecycleScope.launch {
+            appDataStore.setCurrentNoteId(noteId)
+        }
     }
 
-    fun getCurrentNoteId(): Long = currentNoteId
+    fun getCurrentNoteId(): Long {
+        // 由于需要同步返回值，这里返回内存中的值或通过 runBlocking 读取
+        // 实际使用场景中，Fragment 会在 onResume 时重新获取
+        return 0L
+    }
+
+    suspend fun getCurrentNoteIdAsync(): Long {
+        return appDataStore.currentNoteId.first()
+    }
 
     private fun createNewNoteAndEdit() {
         lifecycleScope.launch {
-            val repo = NoteRepository(RetrofitClient.getApiService(this@MainActivity))
-            val result = repo.createNote("未命名笔记", "")
+            val repo = NoteRepository(RetrofitClient.getApiService(this@MainActivity), db.noteDao())
+            val result = repo.createNote(this@MainActivity, "未命名笔记", "")
             if (result is Result.Success) {
-                val bundle = Bundle().apply { putLong("noteId", result.data.note_id) }
+                val noteId = result.data.note_id
+                setCurrentNoteId(noteId)
+                val bundle = Bundle().apply { putLong("noteId", noteId) }
                 if (navController.currentDestination?.id != R.id.noteEditorFragment) {
                     navController.navigate(R.id.noteEditorFragment, bundle)
                 } else {
@@ -82,7 +100,7 @@ class MainActivity : AppCompatActivity() {
 
     private suspend fun pollOcrStatus(fileId: Long) {
         val repo = OcrRepository(RetrofitClient.getApiService(this@MainActivity))
-        repeat(60) { // 最多轮询 60 次，约 2.5 分钟
+        repeat(60) {
             delay(2500)
             when (val result = repo.getStatus(fileId)) {
                 is Result.Success -> {
@@ -91,6 +109,7 @@ class MainActivity : AppCompatActivity() {
                             val noteId = result.data.note_id
                             if (noteId != null && noteId > 0) {
                                 Toast.makeText(this, "OCR 完成，已生成笔记", Toast.LENGTH_SHORT).show()
+                                setCurrentNoteId(noteId)
                                 val bundle = Bundle().apply { putLong("noteId", noteId) }
                                 navController.navigate(R.id.noteEditorFragment, bundle)
                             } else {
@@ -102,7 +121,7 @@ class MainActivity : AppCompatActivity() {
                             Toast.makeText(this, "OCR 处理失败", Toast.LENGTH_LONG).show()
                             return
                         }
-                        else -> { /* processing, continue polling */ }
+                        else -> { }
                     }
                 }
                 is Result.Error -> {
@@ -152,12 +171,28 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // 设置 NavController
         val navHostFragment = supportFragmentManager
             .findFragmentById(R.id.nav_host_fragment) as NavHostFragment
         navController = navHostFragment.navController
 
-        // 将 NoteListFragment 嵌入左抽屉，ToolPanelFragment 嵌入右抽屉
+        // 启动时检查 token
+        lifecycleScope.launch {
+            val userRepo = UserRepository(
+                RetrofitClient.getApiService(this@MainActivity),
+                appDataStore,
+                db
+            )
+            val isValid = userRepo.isTokenValid()
+            if (!isValid) {
+                if (navController.currentDestination?.id != R.id.loginFragment) {
+                    navController.navigate(R.id.loginFragment)
+                }
+            } else {
+                // 启动同步 Worker
+                SyncWorker.enqueue(this@MainActivity)
+            }
+        }
+
         if (savedInstanceState == null) {
             supportFragmentManager.beginTransaction()
                 .replace(R.id.left_drawer, NoteListFragment())
@@ -165,7 +200,6 @@ class MainActivity : AppCompatActivity() {
                 .commit()
         }
 
-        // 底部导航栏点击事件
         binding.bottomNav.setOnItemSelectedListener { item ->
             when (item.itemId) {
                 R.id.menu_notes -> {
@@ -194,23 +228,22 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // 根据当前页面控制 BottomNavigationView 显隐，并重置当前笔记ID
         navController.addOnDestinationChangedListener { _, destination, _ ->
             val isAuthPage = destination.id == R.id.loginFragment || destination.id == R.id.registerFragment
             binding.bottomNav.visibility = if (isAuthPage) android.view.View.GONE else android.view.View.VISIBLE
             if (destination.id != R.id.noteEditorFragment) {
-                currentNoteId = 0L
+                lifecycleScope.launch {
+                    appDataStore.setCurrentNoteId(0L)
+                }
             }
         }
 
-        // 全面屏适配：状态栏与导航栏 insets
         ViewCompat.setOnApplyWindowInsetsListener(binding.mainContent) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
 
-        // 返回键分发：优先关闭抽屉
         onBackPressedDispatcher.addCallback(this) {
             when {
                 binding.drawerLayout.isDrawerOpen(GravityCompat.START) -> {

@@ -1,6 +1,5 @@
 package com.calcite.notes.ui.main
 
-import android.app.AlertDialog
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -18,14 +17,14 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import com.calcite.notes.MainActivity
 import com.calcite.notes.R
-import com.calcite.notes.data.remote.RetrofitClient
-import com.calcite.notes.data.repository.FileRepository
-import com.calcite.notes.data.repository.TagRepository
 import com.calcite.notes.databinding.FragmentToolPanelBinding
 import com.calcite.notes.model.FileItem
 import com.calcite.notes.model.Tag
 import com.calcite.notes.utils.Result
 import com.google.android.material.chip.Chip
+import kotlinx.coroutines.launch
+import androidx.lifecycle.lifecycleScope
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
@@ -38,8 +37,7 @@ class ToolPanelFragment : Fragment() {
     private val binding get() = _binding!!
 
     private val viewModel: ToolPanelViewModel by viewModels {
-        val api = RetrofitClient.getApiService(requireContext())
-        ToolPanelViewModel.Factory(TagRepository(api), FileRepository(api))
+        ToolPanelViewModel.Factory(requireContext())
     }
 
     private var currentNoteId: Long = 0L
@@ -60,24 +58,25 @@ class ToolPanelFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        setupTabs()
+        setupStatusFilter()
+
         binding.btnAddTag.setOnClickListener { showCreateTagDialog() }
         binding.btnUploadFile.setOnClickListener { filePickerLauncher.launch("*/*") }
-
-        setupStatusFilter()
 
         binding.swipeRefresh.setOnRefreshListener {
             viewModel.loadAll()
             binding.swipeRefresh.isRefreshing = false
         }
 
-        viewModel.tags.observe(viewLifecycleOwner) { tags ->
-            renderTags(tags, viewModel.boundTagIds.value ?: emptySet())
+        viewModel.allTags.observe(viewLifecycleOwner) {
+            renderTags()
         }
-        viewModel.boundTagIds.observe(viewLifecycleOwner) { boundIds ->
-            renderTags(viewModel.tags.value ?: emptyList(), boundIds)
+        viewModel.currentNoteTags.observe(viewLifecycleOwner) {
+            renderTags()
         }
-        viewModel.files.observe(viewLifecycleOwner) { files ->
-            renderFiles(files)
+        viewModel.files.observe(viewLifecycleOwner) {
+            renderFiles(it)
         }
         viewModel.operationResult.observe(viewLifecycleOwner) { result ->
             when (result) {
@@ -92,9 +91,89 @@ class ToolPanelFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
-        val noteId = (requireActivity() as? MainActivity)?.getCurrentNoteId() ?: 0L
-        currentNoteId = noteId
-        viewModel.setNoteId(noteId)
+        lifecycleScope.launch {
+            val noteId = (requireActivity() as? MainActivity)?.getCurrentNoteIdAsync() ?: 0L
+            currentNoteId = noteId
+            viewModel.setNoteId(noteId)
+        }
+    }
+
+    private fun setupTabs() {
+        binding.tabLayout.addOnTabSelectedListener(object : com.google.android.material.tabs.TabLayout.OnTabSelectedListener {
+            override fun onTabSelected(tab: com.google.android.material.tabs.TabLayout.Tab?) {
+                when (tab?.position) {
+                    0 -> showTagPanel()
+                    1 -> showFilePanel()
+                }
+            }
+            override fun onTabUnselected(tab: com.google.android.material.tabs.TabLayout.Tab?) {}
+            override fun onTabReselected(tab: com.google.android.material.tabs.TabLayout.Tab?) {}
+        })
+    }
+
+    private fun showTagPanel() {
+        binding.layoutTags.visibility = View.VISIBLE
+        binding.layoutFilesContainer.visibility = View.GONE
+    }
+
+    private fun showFilePanel() {
+        binding.layoutTags.visibility = View.GONE
+        binding.layoutFilesContainer.visibility = View.VISIBLE
+    }
+
+    private fun renderTags() {
+        val allTags = viewModel.allTags.value ?: emptyList()
+        val currentTags = viewModel.currentNoteTags.value ?: emptyList()
+        val hasNote = currentNoteId > 0
+
+        if (hasNote) {
+            binding.layoutCurrentNoteTags.visibility = View.VISIBLE
+            binding.tvAllTagsTitle.text = "全部标签（点击绑定）"
+
+            // 当前笔记标签
+            binding.chipGroupCurrentNoteTags.removeAllViews()
+            for (tag in currentTags) {
+                val chip = Chip(requireContext()).apply {
+                    text = tag.name
+                    isCloseIconVisible = true
+                    setOnCloseIconClickListener {
+                        viewModel.unbindTag(tag.id)
+                    }
+                }
+                binding.chipGroupCurrentNoteTags.addView(chip)
+            }
+
+            // 全部标签（排除已绑定的）
+            binding.chipGroupAllTags.removeAllViews()
+            val currentTagIds = currentTags.map { it.id }.toSet()
+            for (tag in allTags) {
+                if (tag.id in currentTagIds) continue
+                val chip = Chip(requireContext()).apply {
+                    text = tag.name
+                    isCheckable = false
+                    setOnClickListener {
+                        viewModel.bindTag(tag.id)
+                    }
+                }
+                binding.chipGroupAllTags.addView(chip)
+            }
+        } else {
+            binding.layoutCurrentNoteTags.visibility = View.GONE
+            binding.tvAllTagsTitle.text = "全部标签（长按管理）"
+
+            binding.chipGroupAllTags.removeAllViews()
+            for (tag in allTags) {
+                val chip = Chip(requireContext()).apply {
+                    text = tag.name
+                    isCheckable = false
+                    setOnLongClickListener {
+                        showTagMenu(tag)
+                        true
+                    }
+                }
+                binding.chipGroupAllTags.addView(chip)
+            }
+        }
     }
 
     private fun setupStatusFilter() {
@@ -113,23 +192,6 @@ class ToolPanelFragment : Fragment() {
                 viewModel.setFileStatusFilter(status)
             }
             override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
-        }
-    }
-
-    private fun renderTags(tags: List<Tag>, boundIds: Set<Long>) {
-        binding.chipGroupTags.removeAllViews()
-        for (tag in tags) {
-            val chip = Chip(requireContext()).apply {
-                text = tag.name
-                isCheckable = true
-                isChecked = boundIds.contains(tag.id)
-                setOnCheckedChangeListener { _, _ -> viewModel.toggleTag(tag.id) }
-                setOnLongClickListener {
-                    showTagMenu(tag)
-                    true
-                }
-            }
-            binding.chipGroupTags.addView(chip)
         }
     }
 
@@ -173,7 +235,7 @@ class ToolPanelFragment : Fragment() {
 
     private fun showFileMenu(file: FileItem) {
         val options = arrayOf("复制链接", "删除")
-        AlertDialog.Builder(requireContext())
+        MaterialAlertDialogBuilder(requireContext())
             .setTitle(file.file_name)
             .setItems(options) { _, which ->
                 when (which) {
@@ -196,7 +258,7 @@ class ToolPanelFragment : Fragment() {
     }
 
     private fun showDeleteFileConfirm(file: FileItem) {
-        AlertDialog.Builder(requireContext())
+        MaterialAlertDialogBuilder(requireContext())
             .setTitle("删除文件")
             .setMessage("确定删除文件 \"${file.file_name}\" 吗？")
             .setPositiveButton("删除") { _, _ ->
@@ -246,7 +308,7 @@ class ToolPanelFragment : Fragment() {
 
     private fun showTagMenu(tag: Tag) {
         val options = arrayOf("重命名", "删除")
-        AlertDialog.Builder(requireContext())
+        MaterialAlertDialogBuilder(requireContext())
             .setTitle(tag.name)
             .setItems(options) { _, which ->
                 when (which) {
@@ -259,7 +321,7 @@ class ToolPanelFragment : Fragment() {
 
     private fun showCreateTagDialog() {
         val input = EditText(requireContext()).apply { hint = "标签名称" }
-        AlertDialog.Builder(requireContext())
+        MaterialAlertDialogBuilder(requireContext())
             .setTitle("新建标签")
             .setView(input)
             .setPositiveButton("创建") { _, _ ->
@@ -275,7 +337,7 @@ class ToolPanelFragment : Fragment() {
             setText(tag.name)
             selectAll()
         }
-        AlertDialog.Builder(requireContext())
+        MaterialAlertDialogBuilder(requireContext())
             .setTitle("重命名标签")
             .setView(input)
             .setPositiveButton("确定") { _, _ ->
@@ -287,7 +349,7 @@ class ToolPanelFragment : Fragment() {
     }
 
     private fun showDeleteTagConfirm(tag: Tag) {
-        AlertDialog.Builder(requireContext())
+        MaterialAlertDialogBuilder(requireContext())
             .setTitle("删除标签")
             .setMessage("确定删除标签 \"${tag.name}\" 吗？")
             .setPositiveButton("删除") { _, _ ->
