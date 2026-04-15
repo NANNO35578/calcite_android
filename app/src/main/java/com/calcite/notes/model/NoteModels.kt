@@ -4,7 +4,7 @@ data class Note(
     val id: Long,
     val title: String,
     val summary: String?,
-    val folder_id: Long,
+    val folder_id: Long?,
     val created_at: String,
     val updated_at: String
 )
@@ -14,7 +14,7 @@ data class NoteDetail(
     val title: String,
     val content: String,
     val summary: String?,
-    val folder_id: Long,
+    val folder_id: Long?,
     val created_at: String,
     val updated_at: String?
 )

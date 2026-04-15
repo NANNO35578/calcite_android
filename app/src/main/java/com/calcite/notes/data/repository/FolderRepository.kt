@@ -103,12 +103,45 @@ class FolderRepository(
         }
     }
 
+    suspend fun syncAllFolders(context: Context): Result<Unit> {
+        if (!NetworkUtils.isNetworkAvailable(context)) {
+            return Result.Error("无网络连接")
+        }
+        return try {
+            val queue = ArrayDeque<Long>()
+            queue.add(0L)
+            val allFolders = mutableListOf<FolderEntity>()
+            while (queue.isNotEmpty()) {
+                val pid = queue.removeFirst()
+                val response = apiService.getFolderList(pid)
+                if (response.code == 0) {
+                    val folders = response.data ?: emptyList()
+                    for (folder in folders) {
+                        allFolders.add(
+                            FolderEntity(
+                                folder.id,
+                                folder.name,
+                                folder.parent_id ?: 0L,
+                                folder.created_at ?: ""
+                            )
+                        )
+                        queue.add(folder.id)
+                    }
+                }
+            }
+            folderDao.insertAll(allFolders)
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "网络请求失败")
+        }
+    }
+
     suspend fun getFolderList(context: Context, parentId: Long = 0): Result<List<Folder>> {
         return if (NetworkUtils.isNetworkAvailable(context)) {
             val result = getFolderListFromRemote(parentId)
             if (result is Result.Success) {
                 folderDao.insertAll(result.data.map {
-                    FolderEntity(it.id, it.name, it.parent_id, it.created_at)
+                    FolderEntity(it.id, it.name, it.parent_id ?: 0L, it.created_at ?: "")
                 })
             }
             result

@@ -114,6 +114,24 @@ class TagRepository(
         }
     }
 
+    suspend fun syncAllTags(context: Context): Result<Unit> {
+        if (!NetworkUtils.isNetworkAvailable(context)) {
+            return Result.Error("无网络连接")
+        }
+        return try {
+            val response = apiService.getTagList()
+            if (response.code == 0) {
+                val tags = response.data ?: emptyList()
+                tagDao.insertAll(tags.map { TagEntity(it.id, it.name, it.created_at) })
+                Result.Success(Unit)
+            } else {
+                Result.Error(response.message)
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "网络请求失败")
+        }
+    }
+
     suspend fun getAllTags(context: Context): Result<List<Tag>> {
         return if (NetworkUtils.isNetworkAvailable(context)) {
             val result = getAllTagsFromRemote()

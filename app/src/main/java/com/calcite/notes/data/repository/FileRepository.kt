@@ -62,6 +62,39 @@ class FileRepository(
         }
     }
 
+    suspend fun syncAllFiles(context: Context): Result<Unit> {
+        if (!NetworkUtils.isNetworkAvailable(context)) {
+            return Result.Error("无网络连接")
+        }
+        return try {
+            val response = apiService.getFileList()
+            if (response.code == 0) {
+                val files = response.data ?: emptyList()
+                fileDao.insertAll(files.map {
+                    FileEntity(
+                        id = it.id,
+                        userId = it.user_id,
+                        noteId = it.note_id,
+                        fileName = it.file_name,
+                        fileType = it.file_type,
+                        fileSize = it.file_size,
+                        fileSizeFormatted = it.file_size_formatted,
+                        objectKey = it.object_key,
+                        url = it.url,
+                        status = it.status,
+                        createdAt = it.created_at,
+                        updatedAt = it.updated_at
+                    )
+                })
+                Result.Success(Unit)
+            } else {
+                Result.Error(response.message)
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "网络请求失败")
+        }
+    }
+
     suspend fun getFileList(context: Context, status: String? = null): Result<List<FileItem>> {
         return if (NetworkUtils.isNetworkAvailable(context)) {
             val result = getFileListFromRemote(status)

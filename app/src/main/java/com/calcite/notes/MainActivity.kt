@@ -1,49 +1,43 @@
 package com.calcite.notes
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.addCallback
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.GravityCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.GravityCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
+import androidx.navigation.NavOptions
 import androidx.navigation.fragment.NavHostFragment
 import com.calcite.notes.data.local.AppDataStore
 import com.calcite.notes.data.local.database.AppDatabase
 import com.calcite.notes.data.remote.RetrofitClient
-import com.calcite.notes.data.repository.NoteRepository
-import com.calcite.notes.data.repository.OcrRepository
 import com.calcite.notes.data.repository.UserRepository
 import com.calcite.notes.data.sync.SyncWorker
 import com.calcite.notes.databinding.ActivityMainBinding
+import com.calcite.notes.ui.main.MainViewModel
 import com.calcite.notes.ui.main.NoteListFragment
 import com.calcite.notes.ui.main.ToolPanelFragment
 import com.calcite.notes.utils.Result
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import okhttp3.MultipartBody
-import okhttp3.RequestBody.Companion.asRequestBody
-import java.io.File
-import java.io.FileOutputStream
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var navController: NavController
+    private lateinit var tokenExpiredReceiver: BroadcastReceiver
 
     private val appDataStore by lazy { AppDataStore(this) }
-    private val db by lazy { AppDatabase.getInstance(this) }
-
-    private val ocrImagePicker = registerForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        uri?.let { startOcrProcess(it) }
-    }
+    private val mainViewModel: MainViewModel by viewModels { MainViewModel.Factory(this) }
 
     fun setCurrentNoteId(noteId: Long) {
         lifecycleScope.launch {
@@ -51,119 +45,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    fun getCurrentNoteId(): Long {
-        // 由于需要同步返回值，这里返回内存中的值或通过 runBlocking 读取
-        // 实际使用场景中，Fragment 会在 onResume 时重新获取
-        return 0L
-    }
-
     suspend fun getCurrentNoteIdAsync(): Long {
         return appDataStore.currentNoteId.first()
     }
 
-    private fun createNewNoteAndEdit() {
-        lifecycleScope.launch {
-            val repo = NoteRepository(RetrofitClient.getApiService(this@MainActivity), db.noteDao())
-            val result = repo.createNote(this@MainActivity, "未命名笔记", "")
-            if (result is Result.Success) {
-                val noteId = result.data.note_id
-                setCurrentNoteId(noteId)
-                val bundle = Bundle().apply { putLong("noteId", noteId) }
-                if (navController.currentDestination?.id != R.id.noteEditorFragment) {
-                    navController.navigate(R.id.noteEditorFragment, bundle)
-                } else {
-                    navController.navigate(R.id.noteEditorFragment, bundle)
-                }
-            } else {
-                Toast.makeText(this@MainActivity, "创建笔记失败", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
-    private fun startOcrProcess(uri: Uri) {
-        val part = uriToMultipartPart(uri) ?: return
-        lifecycleScope.launch {
-            Toast.makeText(this@MainActivity, "OCR 任务已提交", Toast.LENGTH_SHORT).show()
-            val repo = OcrRepository(RetrofitClient.getApiService(this@MainActivity))
-            when (val result = repo.recognize(part)) {
-                is Result.Success -> {
-                    val fileId = result.data.file_id
-                    pollOcrStatus(fileId)
-                }
-                is Result.Error -> {
-                    Toast.makeText(this@MainActivity, "OCR 提交失败: ${result.message}", Toast.LENGTH_LONG).show()
-                }
-                else -> {}
-            }
-        }
-    }
-
-    private suspend fun pollOcrStatus(fileId: Long) {
-        val repo = OcrRepository(RetrofitClient.getApiService(this@MainActivity))
-        repeat(60) {
-            delay(2500)
-            when (val result = repo.getStatus(fileId)) {
-                is Result.Success -> {
-                    when (result.data.status) {
-                        "done" -> {
-                            val noteId = result.data.note_id
-                            if (noteId != null && noteId > 0) {
-                                Toast.makeText(this, "OCR 完成，已生成笔记", Toast.LENGTH_SHORT).show()
-                                setCurrentNoteId(noteId)
-                                val bundle = Bundle().apply { putLong("noteId", noteId) }
-                                navController.navigate(R.id.noteEditorFragment, bundle)
-                            } else {
-                                Toast.makeText(this, "OCR 完成但未获取到笔记", Toast.LENGTH_SHORT).show()
-                            }
-                            return
-                        }
-                        "failed" -> {
-                            Toast.makeText(this, "OCR 处理失败", Toast.LENGTH_LONG).show()
-                            return
-                        }
-                        else -> { }
-                    }
-                }
-                is Result.Error -> {
-                    Toast.makeText(this, "查询 OCR 状态失败: ${result.message}", Toast.LENGTH_SHORT).show()
-                    return
-                }
-                else -> {}
-            }
-        }
-        Toast.makeText(this, "OCR 处理超时，请稍后手动查询", Toast.LENGTH_LONG).show()
-    }
-
-    private fun uriToMultipartPart(uri: Uri): MultipartBody.Part? {
-        val contentResolver = contentResolver
-        val inputStream = contentResolver.openInputStream(uri) ?: return null
-        val mimeType = contentResolver.getType(uri) ?: "application/octet-stream"
-        val fileName = getFileNameFromUri(uri) ?: "unknown"
-        val tempFile = File(cacheDir, fileName)
-        FileOutputStream(tempFile).use { output ->
-            inputStream.copyTo(output)
-        }
-        val requestFile = tempFile.asRequestBody(mimeType.toMediaTypeOrNull())
-        return MultipartBody.Part.createFormData("file", fileName, requestFile)
-    }
-
-    private fun getFileNameFromUri(uri: Uri): String? {
-        var result: String? = null
-        if (uri.scheme == "content") {
-            val cursor = contentResolver.query(uri, null, null, null, null)
-            cursor?.use {
-                if (it.moveToFirst()) {
-                    val index = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-                    if (index >= 0) {
-                        result = it.getString(index)
-                    }
-                }
-            }
-        }
-        if (result == null) {
-            result = uri.lastPathSegment
-        }
-        return result
+    private val ocrImagePicker = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let { mainViewModel.startOcr(it) }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -180,16 +69,32 @@ class MainActivity : AppCompatActivity() {
             val userRepo = UserRepository(
                 RetrofitClient.getApiService(this@MainActivity),
                 appDataStore,
-                db
+                AppDatabase.getInstance(this@MainActivity)
             )
             val isValid = userRepo.isTokenValid()
-            if (!isValid) {
-                if (navController.currentDestination?.id != R.id.loginFragment) {
-                    navController.navigate(R.id.loginFragment)
+            if (isValid) {
+                // token 有效，直接进入主界面
+                if (navController.currentDestination?.id == R.id.loginFragment) {
+                    navController.navigate(
+                        R.id.homeFragment,
+                        null,
+                        NavOptions.Builder()
+                            .setPopUpTo(R.id.nav_graph, true)
+                            .build()
+                    )
                 }
-            } else {
-                // 启动同步 Worker
                 SyncWorker.enqueue(this@MainActivity)
+            } else {
+                // token 无效或过期，确保停留在登录页
+                if (navController.currentDestination?.id != R.id.loginFragment) {
+                    navController.navigate(
+                        R.id.loginFragment,
+                        null,
+                        NavOptions.Builder()
+                            .setPopUpTo(R.id.nav_graph, true)
+                            .build()
+                    )
+                }
             }
         }
 
@@ -207,7 +112,7 @@ class MainActivity : AppCompatActivity() {
                     true
                 }
                 R.id.menu_new_note -> {
-                    createNewNoteAndEdit()
+                    mainViewModel.createNewNote()
                     true
                 }
                 R.id.menu_ocr -> {
@@ -244,6 +149,7 @@ class MainActivity : AppCompatActivity() {
             insets
         }
 
+        // 统一返回逻辑
         onBackPressedDispatcher.addCallback(this) {
             when {
                 binding.drawerLayout.isDrawerOpen(GravityCompat.START) -> {
@@ -253,11 +159,97 @@ class MainActivity : AppCompatActivity() {
                     binding.drawerLayout.closeDrawer(GravityCompat.END)
                 }
                 else -> {
-                    isEnabled = false
-                    onBackPressedDispatcher.onBackPressed()
-                    isEnabled = true
+                    val currentId = navController.currentDestination?.id
+                    when (currentId) {
+                        R.id.loginFragment, R.id.registerFragment, R.id.noteEditorFragment -> {
+                            finish()
+                        }
+                        else -> {
+                            // 其他页面返回 NoteEditor，禁止多层返回
+                            if (currentId != R.id.noteEditorFragment) {
+                                navController.navigate(
+                                    R.id.noteEditorFragment,
+                                    null,
+                                    NavOptions.Builder()
+                                        .setPopUpTo(R.id.nav_graph, true)
+                                        .build()
+                                )
+                            } else {
+                                finish()
+                            }
+                        }
+                    }
                 }
             }
+        }
+
+        // ViewModel 观察
+        mainViewModel.createNoteResult.observe(this) { result ->
+            when (result) {
+                is Result.Success -> {
+                    val noteId = result.data.note_id
+                    setCurrentNoteId(noteId)
+                    val bundle = Bundle().apply { putLong("noteId", noteId) }
+                    navController.navigate(R.id.noteEditorFragment, bundle)
+                }
+                is Result.Error -> Toast.makeText(this, "创建笔记失败", Toast.LENGTH_SHORT).show()
+                else -> {}
+            }
+        }
+
+        mainViewModel.ocrStatus.observe(this) { result ->
+            when (result) {
+                is Result.Success -> {
+                    val status = result.data
+                    if (status.error != null) {
+                        Toast.makeText(this, status.error, Toast.LENGTH_LONG).show()
+                    } else if (status.done && status.noteId != null && status.noteId > 0) {
+                        Toast.makeText(this, "OCR 完成，已生成笔记", Toast.LENGTH_SHORT).show()
+                        setCurrentNoteId(status.noteId)
+                        val bundle = Bundle().apply { putLong("noteId", status.noteId) }
+                        navController.navigate(R.id.noteEditorFragment, bundle)
+                    } else if (status.done) {
+                        Toast.makeText(this, "OCR 完成但未获取到笔记", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                is Result.Error -> {
+                    Toast.makeText(this, "OCR 失败: ${result.message}", Toast.LENGTH_LONG).show()
+                }
+                else -> {}
+            }
+        }
+
+        // Token 过期广播接收器
+        tokenExpiredReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.action == "com.calcite.notes.ACTION_TOKEN_EXPIRED") {
+                    lifecycleScope.launch {
+                        appDataStore.clearAll()
+                        if (navController.currentDestination?.id != R.id.loginFragment) {
+                            navController.navigate(
+                                R.id.loginFragment,
+                                null,
+                                NavOptions.Builder()
+                                    .setPopUpTo(R.id.nav_graph, true)
+                                    .build()
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        val filter = IntentFilter("com.calcite.notes.ACTION_TOKEN_EXPIRED")
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(tokenExpiredReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(tokenExpiredReceiver, filter)
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        if (::tokenExpiredReceiver.isInitialized) {
+            unregisterReceiver(tokenExpiredReceiver)
         }
     }
 }

@@ -62,6 +62,10 @@ class NoteListFragment : Fragment() {
         binding.recyclerTree.layoutManager = LinearLayoutManager(requireContext())
         binding.recyclerTree.adapter = treeAdapter
 
+        binding.swipeRefresh.setOnRefreshListener {
+            viewModel.refresh()
+        }
+
         binding.btnNewNote.setOnClickListener { showCreateNoteDialog() }
         binding.btnNewFolder.setOnClickListener { showCreateFolderDialog() }
         binding.btnOcr.setOnClickListener {
@@ -79,6 +83,10 @@ class NoteListFragment : Fragment() {
 
         viewModel.userProfile.observe(viewLifecycleOwner) {
             binding.tvUsername.text = it?.username ?: "用户"
+        }
+
+        viewModel.isRefreshing.observe(viewLifecycleOwner) { refreshing ->
+            binding.swipeRefresh.isRefreshing = refreshing == true
         }
 
         viewModel.operationResult.observe(viewLifecycleOwner) { result ->

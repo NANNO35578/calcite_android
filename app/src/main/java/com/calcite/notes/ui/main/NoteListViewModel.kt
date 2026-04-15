@@ -8,22 +8,27 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.calcite.notes.data.local.database.AppDatabase
 import com.calcite.notes.data.remote.RetrofitClient
+import com.calcite.notes.data.repository.FileRepository
 import com.calcite.notes.data.repository.FolderRepository
 import com.calcite.notes.data.repository.NoteRepository
+import com.calcite.notes.data.repository.TagRepository
 import com.calcite.notes.data.repository.UserRepository
 import com.calcite.notes.model.Folder
 import com.calcite.notes.model.Note
 import com.calcite.notes.model.UserProfile
 import com.calcite.notes.ui.main.tree.TreeNode
+import com.calcite.notes.utils.NetworkUtils
 import com.calcite.notes.utils.Result
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class NoteListViewModel(
     private val context: Context,
     private val noteRepository: NoteRepository,
     private val folderRepository: FolderRepository,
+    private val tagRepository: TagRepository,
+    private val fileRepository: FileRepository,
     private val userRepository: UserRepository
 ) : ViewModel() {
 
@@ -36,80 +41,95 @@ class NoteListViewModel(
     private val _operationResult = MutableLiveData<Result<String>>()
     val operationResult: LiveData<Result<String>> = _operationResult
 
+    private val _isRefreshing = MutableLiveData(false)
+    val isRefreshing: LiveData<Boolean> = _isRefreshing
+
     private val expandedFolders = mutableSetOf<Long>()
-    private val folderToChildren = mutableMapOf<Long, Pair<List<Folder>, List<Note>>>()
+    private val refreshTrigger = MutableStateFlow(Unit)
+    private var allFoldersCache = listOf<Folder>()
+    private var allNotesCache = listOf<Note>()
 
     init {
         observeLocalData()
         loadUserProfile()
+        viewModelScope.launch {
+            if (NetworkUtils.isNetworkAvailable(context)) {
+                refresh()
+            }
+        }
     }
 
     private fun observeLocalData() {
         viewModelScope.launch {
             combine(
-                folderRepository.getFolderListLocal(0),
-                noteRepository.getNoteListLocal(0)
-            ) { folders, notes ->
-                buildTree(folders, notes)
+                folderRepository.getAllFoldersLocal(),
+                noteRepository.getAllNotesLocal(),
+                refreshTrigger
+            ) { folders, notes, _ ->
+                allFoldersCache = folders
+                allNotesCache = notes
+                buildFullTree(folders, notes)
             }.collect {
                 _treeNodes.value = it
             }
         }
     }
 
-    private fun buildTree(folders: List<Folder>, notes: List<Note>): List<TreeNode> {
-        val result = mutableListOf<TreeNode>()
-        // 文件夹在前，笔记在后
-        folders.sortedBy { it.name }.forEach {
-            result.add(TreeNode.FolderNode(it, 0, expandedFolders.contains(it.id)))
-        }
-        notes.sortedBy { it.title }.forEach {
-            result.add(TreeNode.NoteNode(it, 0))
-        }
-        return result
-    }
+    private fun buildFullTree(folders: List<Folder>, notes: List<Note>): List<TreeNode> {
+        val folderMap = folders.groupBy { it.parent_id ?: 0L }
+        val noteMap = notes.groupBy { it.folder_id ?: 0L }
 
-    private suspend fun buildSubTree(folderId: Long, level: Int): List<TreeNode> {
-        val result = mutableListOf<TreeNode>()
-        val folders = folderRepository.getFolderListLocal(folderId).first()
-        val notes = noteRepository.getNoteListLocal(folderId).first()
-        folderToChildren[folderId] = folders to notes
-
-        folders.sortedBy { it.name }.forEach {
-            val isExpanded = expandedFolders.contains(it.id)
-            result.add(TreeNode.FolderNode(it, level, isExpanded))
-            if (isExpanded) {
-                result.addAll(buildSubTree(it.id, level + 1))
+        fun buildForParent(parentId: Long, level: Int): List<TreeNode> {
+            val result = mutableListOf<TreeNode>()
+            // 先构建文件夹树
+            val childFolders = folderMap[parentId]?.sortedBy { it.name } ?: emptyList()
+            for (folder in childFolders) {
+                val isExpanded = expandedFolders.contains(folder.id)
+                result.add(TreeNode.FolderNode(folder, level, isExpanded))
+                if (isExpanded) {
+                    result.addAll(buildForParent(folder.id, level + 1))
+                }
             }
+            // 再挂载笔记
+            val childNotes = noteMap[parentId]?.sortedBy { it.title } ?: emptyList()
+            for (note in childNotes) {
+                result.add(TreeNode.NoteNode(note, level))
+            }
+            return result
         }
-        notes.sortedBy { it.title }.forEach {
-            result.add(TreeNode.NoteNode(it, level))
-        }
-        return result
+
+        return buildForParent(0L, 0)
     }
 
     fun toggleFolder(folderNode: TreeNode.FolderNode) {
-        val currentList = _treeNodes.value?.toMutableList() ?: return
-        val index = currentList.indexOfFirst {
-            it is TreeNode.FolderNode && it.folder.id == folderNode.folder.id && it.level == folderNode.level
-        }
-        if (index == -1) return
-
         if (folderNode.isExpanded) {
-            // 折叠
-            val removeCount = currentList.drop(index + 1).takeWhile { it.level > folderNode.level }.size
-            repeat(removeCount) { currentList.removeAt(index + 1) }
             expandedFolders.remove(folderNode.folder.id)
-            currentList[index] = folderNode.copy(isExpanded = false)
-            _treeNodes.value = currentList
         } else {
-            // 展开
             expandedFolders.add(folderNode.folder.id)
-            viewModelScope.launch {
-                val children = buildSubTree(folderNode.folder.id, folderNode.level + 1)
-                currentList.addAll(index + 1, children)
-                currentList[index] = folderNode.copy(isExpanded = true, hasLoadedChildren = true)
-                _treeNodes.value = currentList
+        }
+        refreshTrigger.value = Unit
+    }
+
+    fun refresh() {
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            val noteResult = noteRepository.syncAllNotes(context)
+            val folderResult = folderRepository.syncAllFolders(context)
+            val tagResult = tagRepository.syncAllTags(context)
+            val fileResult = fileRepository.syncAllFiles(context)
+            _isRefreshing.value = false
+            val allSuccess = noteResult is Result.Success && folderResult is Result.Success
+                    && tagResult is Result.Success && fileResult is Result.Success
+            if (allSuccess) {
+                _operationResult.value = Result.Success("已同步")
+            } else {
+                val msg = listOfNotNull(
+                    (noteResult as? Result.Error)?.message,
+                    (folderResult as? Result.Error)?.message,
+                    (tagResult as? Result.Error)?.message,
+                    (fileResult as? Result.Error)?.message
+                ).firstOrNull() ?: "同步失败"
+                _operationResult.value = Result.Error(msg)
             }
         }
     }
@@ -201,23 +221,7 @@ class NoteListViewModel(
         }
     }
 
-    fun getAllFolders(): List<Folder> {
-        val result = mutableListOf<Folder>()
-        fun collect(folderId: Long) {
-            val pair = folderToChildren[folderId] ?: return
-            pair.first.forEach {
-                result.add(it)
-                collect(it.id)
-            }
-        }
-        // 根目录
-        val rootPair = folderToChildren[0L]
-        rootPair?.first?.forEach {
-            result.add(it)
-            collect(it.id)
-        }
-        return result
-    }
+    fun getAllFolders(): List<Folder> = allFoldersCache
 
     class Factory(private val context: Context) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
@@ -228,6 +232,8 @@ class NoteListViewModel(
                 context,
                 NoteRepository(api, db.noteDao()),
                 FolderRepository(api, db.folderDao()),
+                TagRepository(api, db.tagDao(), db.noteTagDao()),
+                FileRepository(api, db.fileDao()),
                 UserRepository(api, com.calcite.notes.data.local.AppDataStore(context), db)
             ) as T
         }

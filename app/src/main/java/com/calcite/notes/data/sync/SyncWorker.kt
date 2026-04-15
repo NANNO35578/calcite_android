@@ -59,6 +59,9 @@ class SyncWorker(
             db.folderDao().deleteAll()
             db.fileDao().deleteAll()
             db.noteTagDao().deleteAll()
+            // 发送广播通知 UI 跳转登录页
+            val intent = android.content.Intent("com.calcite.notes.ACTION_TOKEN_EXPIRED")
+            applicationContext.sendBroadcast(intent)
             return Result.failure()
         }
 
@@ -121,7 +124,7 @@ class SyncWorker(
                         title = it.title,
                         content = it.content,
                         summary = it.summary,
-                        folderId = it.folder_id,
+                        folderId = it.folder_id ?: 0L,
                         createdAt = it.created_at ?: "",
                         updatedAt = it.updated_at ?: ""
                     )
@@ -178,8 +181,8 @@ class SyncWorker(
                             com.calcite.notes.data.local.entity.FolderEntity(
                                 id = folder.id,
                                 name = folder.name,
-                                parentId = folder.parent_id,
-                                createdAt = folder.created_at
+                                parentId = folder.parent_id ?: 0L,
+                                createdAt = folder.created_at ?: ""
                             )
                         )
                         queue.add(folder.id)

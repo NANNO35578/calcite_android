@@ -82,7 +82,7 @@ class NoteRepository(
                             title = it.title,
                             content = it.content,
                             summary = it.summary,
-                            folderId = it.folder_id,
+                            folderId = it.folder_id ?: 0L,
                             createdAt = it.created_at ?: "",
                             updatedAt = it.updated_at ?: ""
                         )
@@ -113,7 +113,7 @@ class NoteRepository(
                             title = it.title,
                             content = it.content,
                             summary = it.summary,
-                            folderId = it.folder_id,
+                            folderId = it.folder_id ?: 0L,
                             createdAt = it.created_at ?: "",
                             updatedAt = it.updated_at ?: ""
                         )
@@ -155,7 +155,7 @@ class NoteRepository(
                         title = it.title,
                         content = "",
                         summary = it.summary,
-                        folderId = it.folder_id,
+                        folderId = it.folder_id ?: 0L,
                         createdAt = it.created_at,
                         updatedAt = it.updated_at
                     )
@@ -164,6 +164,34 @@ class NoteRepository(
             result
         } else {
             Result.Success(noteDao.getByFolderId(folderId).first().map { it.toNote() })
+        }
+    }
+
+    suspend fun syncAllNotes(context: Context): Result<Unit> {
+        if (!NetworkUtils.isNetworkAvailable(context)) {
+            return Result.Error("无网络连接")
+        }
+        return try {
+            val response = apiService.getNoteList(0)
+            if (response.code == 0) {
+                val notes = response.data ?: emptyList()
+                noteDao.insertAll(notes.map {
+                    NoteEntity(
+                        id = it.id,
+                        title = it.title,
+                        content = "",
+                        summary = it.summary,
+                        folderId = it.folder_id ?: 0L,
+                        createdAt = it.created_at,
+                        updatedAt = it.updated_at
+                    )
+                })
+                Result.Success(Unit)
+            } else {
+                Result.Error(response.message)
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "网络请求失败")
         }
     }
 
@@ -177,7 +205,7 @@ class NoteRepository(
                         title = result.data.title,
                         content = result.data.content,
                         summary = result.data.summary,
-                        folderId = result.data.folder_id,
+                        folderId = result.data.folder_id ?: 0L,
                         createdAt = result.data.created_at ?: "",
                         updatedAt = result.data.updated_at ?: ""
                     )

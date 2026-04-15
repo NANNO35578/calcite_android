@@ -22,10 +22,18 @@ class LoginFragment : Fragment() {
     private val binding get() = _binding!!
 
     private val viewModel: LoginViewModel by viewModels {
-        val apiService = RetrofitClient.getApiService(requireContext())
-        val appDataStore = AppDataStore(requireContext())
+        val ctx = requireContext()
+        val apiService = RetrofitClient.getApiService(ctx)
+        val appDataStore = AppDataStore(ctx)
+        val db = com.calcite.notes.data.local.database.AppDatabase.getInstance(ctx)
         val repository = AuthRepository(apiService, appDataStore)
-        LoginViewModel.Factory(repository, appDataStore)
+        LoginViewModel.Factory(
+            ctx,
+            repository,
+            appDataStore,
+            com.calcite.notes.data.repository.NoteRepository(apiService, db.noteDao()),
+            com.calcite.notes.data.repository.FolderRepository(apiService, db.folderDao())
+        )
     }
 
     override fun onCreateView(
