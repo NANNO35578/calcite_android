@@ -32,7 +32,9 @@ class LoginFragment : Fragment() {
             repository,
             appDataStore,
             com.calcite.notes.data.repository.NoteRepository(apiService, db.noteDao()),
-            com.calcite.notes.data.repository.FolderRepository(apiService, db.folderDao())
+            com.calcite.notes.data.repository.FolderRepository(apiService, db.folderDao(), db.noteDao()),
+            com.calcite.notes.data.repository.TagRepository(apiService, db.tagDao(), db.noteTagDao()),
+            com.calcite.notes.data.repository.FileRepository(apiService, db.fileDao())
         )
     }
 

@@ -136,11 +136,6 @@ class MainActivity : AppCompatActivity() {
         navController.addOnDestinationChangedListener { _, destination, _ ->
             val isAuthPage = destination.id == R.id.loginFragment || destination.id == R.id.registerFragment
             binding.bottomNav.visibility = if (isAuthPage) android.view.View.GONE else android.view.View.VISIBLE
-            if (destination.id != R.id.noteEditorFragment) {
-                lifecycleScope.launch {
-                    appDataStore.setCurrentNoteId(0L)
-                }
-            }
         }
 
         ViewCompat.setOnApplyWindowInsetsListener(binding.mainContent) { v, insets ->
@@ -165,17 +160,21 @@ class MainActivity : AppCompatActivity() {
                             finish()
                         }
                         else -> {
-                            // 其他页面返回 NoteEditor，禁止多层返回
-                            if (currentId != R.id.noteEditorFragment) {
-                                navController.navigate(
-                                    R.id.noteEditorFragment,
-                                    null,
-                                    NavOptions.Builder()
-                                        .setPopUpTo(R.id.nav_graph, true)
-                                        .build()
-                                )
-                            } else {
-                                finish()
+                            // 其他页面返回最近编辑的笔记，禁止多层返回
+                            lifecycleScope.launch {
+                                val noteId = appDataStore.currentNoteId.first()
+                                if (noteId > 0) {
+                                    val bundle = Bundle().apply { putLong("noteId", noteId) }
+                                    navController.navigate(
+                                        R.id.noteEditorFragment,
+                                        bundle,
+                                        NavOptions.Builder()
+                                            .setPopUpTo(R.id.nav_graph, true)
+                                            .build()
+                                    )
+                                } else {
+                                    finish()
+                                }
                             }
                         }
                     }

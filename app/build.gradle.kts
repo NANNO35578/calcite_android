@@ -77,6 +77,12 @@ dependencies {
     implementation(libs.markwon.core)
     implementation(libs.markwon.ext.strikethrough)
     implementation(libs.markwon.ext.tables)
+    // 图片预览（Coil 方案，官方推荐）
+    implementation(libs.markwon.image.coil)
+    implementation(libs.coil)
+    implementation(libs.coil.gif)
+    // 语法高亮
+    implementation(libs.markwon.syntax.highlight)
 
     // Room
     implementation(libs.androidx.room.runtime)
@@ -89,4 +95,9 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+}
+
+// 加上这段，全局排除冲突包
+configurations.all {
+    exclude(group = "org.jetbrains", module = "annotations-java5")
 }

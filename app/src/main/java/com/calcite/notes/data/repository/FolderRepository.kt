@@ -2,7 +2,9 @@ package com.calcite.notes.data.repository
 
 import android.content.Context
 import com.calcite.notes.data.local.dao.FolderDao
+import com.calcite.notes.data.local.dao.NoteDao
 import com.calcite.notes.data.local.entity.FolderEntity
+import com.calcite.notes.data.local.entity.NoteEntity
 import com.calcite.notes.data.remote.ApiService
 import com.calcite.notes.model.CreateFolderRequest
 import com.calcite.notes.model.DeleteFolderRequest
@@ -17,7 +19,8 @@ import kotlinx.coroutines.flow.map
 
 class FolderRepository(
     private val apiService: ApiService,
-    private val folderDao: FolderDao
+    private val folderDao: FolderDao,
+    private val noteDao: NoteDao? = null
 ) {
 
     // =================== 本地数据源 ===================
@@ -110,9 +113,32 @@ class FolderRepository(
         return try {
             val queue = ArrayDeque<Long>()
             queue.add(0L)
+            val visited = mutableSetOf<Long>()
             val allFolders = mutableListOf<FolderEntity>()
             while (queue.isNotEmpty()) {
                 val pid = queue.removeFirst()
+                if (!visited.add(pid)) continue
+                // 1. 同步当前文件夹下的笔记
+                noteDao?.let { nd ->
+                    try {
+                        val noteResp = apiService.getNoteList(pid)
+                        if (noteResp.code == 0) {
+                            val notes = noteResp.data ?: emptyList()
+                            nd.insertAll(notes.map {
+                                NoteEntity(
+                                    id = it.id,
+                                    title = it.title,
+                                    content = "",
+                                    summary = it.summary,
+                                    folderId = it.folder_id ?: 0L,
+                                    createdAt = it.created_at,
+                                    updatedAt = it.updated_at
+                                )
+                            })
+                        }
+                    } catch (_: Exception) { }
+                }
+                // 2. 同步子文件夹
                 val response = apiService.getFolderList(pid)
                 if (response.code == 0) {
                     val folders = response.data ?: emptyList()
@@ -125,7 +151,9 @@ class FolderRepository(
                                 folder.created_at ?: ""
                             )
                         )
-                        queue.add(folder.id)
+                        if (folder.id !in visited) {
+                            queue.add(folder.id)
+                        }
                     }
                 }
             }

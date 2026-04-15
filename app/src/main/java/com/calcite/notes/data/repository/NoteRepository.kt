@@ -168,28 +168,42 @@ class NoteRepository(
     }
 
     suspend fun syncAllNotes(context: Context): Result<Unit> {
+        return syncAllNotesAndChildNotes(context, emptyList())
+    }
+
+    suspend fun syncAllNotesAndChildNotes(context: Context, folderIds: List<Long>): Result<Unit> {
         if (!NetworkUtils.isNetworkAvailable(context)) {
             return Result.Error("无网络连接")
         }
         return try {
-            val response = apiService.getNoteList(0)
-            if (response.code == 0) {
-                val notes = response.data ?: emptyList()
-                noteDao.insertAll(notes.map {
-                    NoteEntity(
-                        id = it.id,
-                        title = it.title,
-                        content = "",
-                        summary = it.summary,
-                        folderId = it.folder_id ?: 0L,
-                        createdAt = it.created_at,
-                        updatedAt = it.updated_at
-                    )
-                })
-                Result.Success(Unit)
+            val allNotes = mutableListOf<Note>()
+            // 1. 拉取根目录笔记
+            val rootResponse = apiService.getNoteList(0)
+            if (rootResponse.code == 0) {
+                allNotes.addAll(rootResponse.data ?: emptyList())
             } else {
-                Result.Error(response.message)
+                return Result.Error(rootResponse.message)
             }
+            // 2. 拉取每个子文件夹下的笔记
+            for (fid in folderIds) {
+                val resp = apiService.getNoteList(fid)
+                if (resp.code == 0) {
+                    allNotes.addAll(resp.data ?: emptyList())
+                }
+            }
+            // 3. 去重并写入 Room
+            noteDao.insertAll(allNotes.distinctBy { it.id }.map {
+                NoteEntity(
+                    id = it.id,
+                    title = it.title,
+                    content = "",
+                    summary = it.summary,
+                    folderId = it.folder_id ?: 0L,
+                    createdAt = it.created_at,
+                    updatedAt = it.updated_at
+                )
+            })
+            Result.Success(Unit)
         } catch (e: Exception) {
             Result.Error(e.message ?: "网络请求失败")
         }

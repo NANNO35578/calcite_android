@@ -68,7 +68,7 @@ class SyncWorker(
         // 2. 拉取并同步数据
         val noteRepo = NoteRepository(apiService, db.noteDao())
         val tagRepo = TagRepository(apiService, db.tagDao(), db.noteTagDao())
-        val folderRepo = FolderRepository(apiService, db.folderDao())
+        val folderRepo = FolderRepository(apiService, db.folderDao(), db.noteDao())
         val fileRepo = FileRepository(apiService, db.fileDao())
 
         syncNotes(noteRepo)
@@ -171,9 +171,11 @@ class SyncWorker(
 
     private suspend fun syncFolders(repo: FolderRepository) {
         val queue = mutableListOf(0L)
+        val visited = mutableSetOf<Long>()
         val allFolders = mutableListOf<com.calcite.notes.data.local.entity.FolderEntity>()
         while (queue.isNotEmpty()) {
             val parentId = queue.removeAt(0)
+            if (!visited.add(parentId)) continue
             when (val result = repo.getFolderListFromRemote(parentId)) {
                 is com.calcite.notes.utils.Result.Success -> {
                     for (folder in result.data) {
@@ -185,7 +187,9 @@ class SyncWorker(
                                 createdAt = folder.created_at ?: ""
                             )
                         )
-                        queue.add(folder.id)
+                        if (folder.id !in visited) {
+                            queue.add(folder.id)
+                        }
                     }
                 }
                 else -> {}

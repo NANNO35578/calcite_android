@@ -61,7 +61,9 @@ class NoteEditorViewModel(
             noteDao.getById(noteId).collect { entity ->
                 entity?.let {
                     val detail = it.toNoteDetail()
-                    if (_noteDetail.value == null) {
+                    // 只要用户没有手动编辑，就用本地最新数据更新 UI，
+                    // 确保网络写入 Room 后的 Flow 发射能正确刷新界面
+                    if (_hasUnsavedChanges.value != true) {
                         _noteDetail.value = detail
                         lastSavedTitle = detail.title
                         lastSavedContent = detail.content
@@ -75,30 +77,45 @@ class NoteEditorViewModel(
         if (noteId == 0L) return
         viewModelScope.launch {
             _loadResult.value = Result.Loading
-            when (val result = noteRepository.getNoteDetail(context, noteId)) {
-                is Result.Success -> {
-                    val data = result.data
-                    _noteDetail.value = data
-                    lastSavedTitle = data.title
-                    lastSavedContent = data.content
-                    _hasUnsavedChanges.value = false
-                    _loadResult.value = Result.Success(Unit)
-                }
-                is Result.Error -> {
-                    // 尝试本地
-                    val local = noteDao.getByIdSync(noteId)
-                    if (local != null) {
-                        val data = local.toNoteDetail()
+            try {
+                when (val result = noteRepository.getNoteDetail(context, noteId)) {
+                    is Result.Success -> {
+                        val data = result.data
                         _noteDetail.value = data
                         lastSavedTitle = data.title
                         lastSavedContent = data.content
                         _hasUnsavedChanges.value = false
                         _loadResult.value = Result.Success(Unit)
-                    } else {
-                        _loadResult.value = Result.Error(result.message)
                     }
+                    is Result.Error -> {
+                        // 尝试本地
+                        val local = noteDao.getByIdSync(noteId)
+                        if (local != null) {
+                            val data = local.toNoteDetail()
+                            _noteDetail.value = data
+                            lastSavedTitle = data.title
+                            lastSavedContent = data.content
+                            _hasUnsavedChanges.value = false
+                            _loadResult.value = Result.Success(Unit)
+                        } else {
+                            _loadResult.value = Result.Error(result.message)
+                        }
+                    }
+                    else -> {}
                 }
-                else -> {}
+            } catch (e: Exception) {
+                // 网络或数据库异常时回退本地
+                val local = noteDao.getByIdSync(noteId)
+                if (local != null) {
+                    val data = local.toNoteDetail()
+                    _noteDetail.value = data
+                    lastSavedTitle = data.title
+                    lastSavedContent = data.content
+                    _hasUnsavedChanges.value = false
+                    _loadResult.value = Result.Success(Unit)
+                } else {
+                    _loadResult.value = Result.Error(e.message ?: "加载失败")
+                }
             }
         }
     }

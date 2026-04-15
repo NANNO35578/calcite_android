@@ -18,6 +18,8 @@ import com.calcite.notes.data.repository.NoteRepository
 import com.calcite.notes.databinding.FragmentNoteEditorBinding
 import com.calcite.notes.utils.Result
 import io.noties.markwon.Markwon
+import io.noties.markwon.ext.tables.TablePlugin
+import io.noties.markwon.image.coil.CoilImagesPlugin
 
 class NoteEditorFragment : Fragment() {
 
@@ -30,6 +32,7 @@ class NoteEditorFragment : Fragment() {
 
     private lateinit var markwon: Markwon
     private var isUserEditing = false
+    private var contentTextWatcher: TextWatcher? = null
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -42,7 +45,11 @@ class NoteEditorFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        markwon = Markwon.create(requireContext())
+//        markwon = Markwon.create(requireContext())
+        markwon = Markwon.builder(requireContext())
+            .usePlugin(CoilImagesPlugin.create(requireContext()))
+            .usePlugin(TablePlugin.create(requireContext()))
+            .build()
         (activity as? MainActivity)?.setCurrentNoteId(viewModel.noteId)
 
         binding.btnPreview.setOnClickListener {
@@ -54,7 +61,7 @@ class NoteEditorFragment : Fragment() {
             showEditTitleDialog()
         }
 
-        binding.etContent.addTextChangedListener(object : TextWatcher {
+        contentTextWatcher = object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: Editable?) {
@@ -62,15 +69,16 @@ class NoteEditorFragment : Fragment() {
                     viewModel.updateContent(binding.tvTitle.text.toString(), s?.toString() ?: "")
                 }
             }
-        })
+        }
+        binding.etContent.addTextChangedListener(contentTextWatcher!!)
 
         viewModel.noteDetail.observe(viewLifecycleOwner) { detail ->
             detail?.let {
                 binding.tvTitle.text = it.title
                 if (!isUserEditing) {
-                    isUserEditing = false
+                    binding.etContent.removeTextChangedListener(contentTextWatcher!!)
                     binding.etContent.setText(it.content)
-                    isUserEditing = true
+                    binding.etContent.addTextChangedListener(contentTextWatcher!!)
                 }
                 if (viewModel.isPreview.value == true) {
                     markwon.setMarkdown(binding.tvPreview, it.content)

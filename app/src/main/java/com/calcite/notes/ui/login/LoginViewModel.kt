@@ -8,8 +8,10 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.calcite.notes.data.local.AppDataStore
 import com.calcite.notes.data.repository.AuthRepository
+import com.calcite.notes.data.repository.FileRepository
 import com.calcite.notes.data.repository.FolderRepository
 import com.calcite.notes.data.repository.NoteRepository
+import com.calcite.notes.data.repository.TagRepository
 import com.calcite.notes.model.LoginData
 import com.calcite.notes.utils.Result
 import kotlinx.coroutines.flow.first
@@ -20,7 +22,9 @@ class LoginViewModel(
     private val repository: AuthRepository,
     private val appDataStore: AppDataStore,
     private val noteRepository: NoteRepository,
-    private val folderRepository: FolderRepository
+    private val folderRepository: FolderRepository,
+    private val tagRepository: TagRepository,
+    private val fileRepository: FileRepository
 ) : ViewModel() {
 
     private val _loginResult = MutableLiveData<Result<LoginData>>()
@@ -46,9 +50,10 @@ class LoginViewModel(
         viewModelScope.launch {
             val result = repository.login(username, password)
             if (result is Result.Success) {
-                // 登录成功后拉取 note + folder 写入 Room
-                noteRepository.syncAllNotes(context)
+                // 登录成功后同步文件夹树（含笔记）、标签、文件
                 folderRepository.syncAllFolders(context)
+                tagRepository.syncAllTags(context)
+                fileRepository.syncAllFiles(context)
                 val noteId = appDataStore.currentNoteId.first()
                 _navigateToNoteId.value = noteId.takeIf { it > 0 }
             }
@@ -61,11 +66,13 @@ class LoginViewModel(
         private val repository: AuthRepository,
         private val appDataStore: AppDataStore,
         private val noteRepository: NoteRepository,
-        private val folderRepository: FolderRepository
+        private val folderRepository: FolderRepository,
+        private val tagRepository: TagRepository,
+        private val fileRepository: FileRepository
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return LoginViewModel(context, repository, appDataStore, noteRepository, folderRepository) as T
+            return LoginViewModel(context, repository, appDataStore, noteRepository, folderRepository, tagRepository, fileRepository) as T
         }
     }
 }

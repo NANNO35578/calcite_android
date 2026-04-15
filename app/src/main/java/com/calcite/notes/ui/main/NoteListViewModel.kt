@@ -45,7 +45,7 @@ class NoteListViewModel(
     val isRefreshing: LiveData<Boolean> = _isRefreshing
 
     private val expandedFolders = mutableSetOf<Long>()
-    private val refreshTrigger = MutableStateFlow(Unit)
+    private val refreshTrigger = MutableStateFlow(0)
     private var allFoldersCache = listOf<Folder>()
     private var allNotesCache = listOf<Note>()
 
@@ -107,24 +107,22 @@ class NoteListViewModel(
         } else {
             expandedFolders.add(folderNode.folder.id)
         }
-        refreshTrigger.value = Unit
+        refreshTrigger.value += 1
     }
 
     fun refresh() {
         viewModelScope.launch {
             _isRefreshing.value = true
-            val noteResult = noteRepository.syncAllNotes(context)
             val folderResult = folderRepository.syncAllFolders(context)
             val tagResult = tagRepository.syncAllTags(context)
             val fileResult = fileRepository.syncAllFiles(context)
             _isRefreshing.value = false
-            val allSuccess = noteResult is Result.Success && folderResult is Result.Success
+            val allSuccess = folderResult is Result.Success
                     && tagResult is Result.Success && fileResult is Result.Success
             if (allSuccess) {
                 _operationResult.value = Result.Success("已同步")
             } else {
                 val msg = listOfNotNull(
-                    (noteResult as? Result.Error)?.message,
                     (folderResult as? Result.Error)?.message,
                     (tagResult as? Result.Error)?.message,
                     (fileResult as? Result.Error)?.message
@@ -231,7 +229,7 @@ class NoteListViewModel(
             return NoteListViewModel(
                 context,
                 NoteRepository(api, db.noteDao()),
-                FolderRepository(api, db.folderDao()),
+                FolderRepository(api, db.folderDao(), db.noteDao()),
                 TagRepository(api, db.tagDao(), db.noteTagDao()),
                 FileRepository(api, db.fileDao()),
                 UserRepository(api, com.calcite.notes.data.local.AppDataStore(context), db)
