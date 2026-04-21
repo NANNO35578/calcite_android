@@ -60,7 +60,9 @@ class SyncWorker(
             db.fileDao().deleteAll()
             db.noteTagDao().deleteAll()
             // 发送广播通知 UI 跳转登录页
-            val intent = android.content.Intent("com.calcite.notes.ACTION_TOKEN_EXPIRED")
+            val intent = android.content.Intent("com.calcite.notes.ACTION_TOKEN_EXPIRED").apply {
+                setPackage(applicationContext.packageName)
+            }
             applicationContext.sendBroadcast(intent)
             return Result.failure()
         }
@@ -72,7 +74,7 @@ class SyncWorker(
         val fileRepo = FileRepository(apiService, db.fileDao())
 
         syncNotes(noteRepo)
-        syncTags(tagRepo)
+        syncTags(tagRepo, noteRepo)
         syncFolders(folderRepo)
         syncFiles(fileRepo)
 
@@ -126,7 +128,9 @@ class SyncWorker(
                         summary = it.summary,
                         folderId = it.folder_id ?: 0L,
                         createdAt = it.created_at ?: "",
-                        updatedAt = it.updated_at ?: ""
+                        updatedAt = it.updated_at ?: "",
+                        authorId = it.author_id,
+                        isPublic = it.is_public == 1
                     )
                 }
                 db.noteDao().insertAll(entities)
@@ -135,37 +139,11 @@ class SyncWorker(
         }
     }
 
-    private suspend fun syncTags(repo: TagRepository) {
-        when (val result = repo.getAllTagsFromRemote()) {
-            is com.calcite.notes.utils.Result.Success -> {
-                val tags = result.data.map {
-                    com.calcite.notes.data.local.entity.TagEntity(
-                        id = it.id,
-                        name = it.name,
-                        createdAt = it.created_at
-                    )
-                }
-                db.tagDao().insertAll(tags)
-
-                // 同步每个笔记的标签绑定关系
-                val notes = db.noteDao().getAllSync()
-                for (note in notes) {
-                    when (val bindResult = repo.getTagsByNoteFromRemote(note.id)) {
-                        is com.calcite.notes.utils.Result.Success -> {
-                            db.noteTagDao().deleteByNoteId(note.id)
-                            val crossRefs = bindResult.data.map { tag ->
-                                com.calcite.notes.data.local.entity.NoteTagCrossRef(
-                                    noteId = note.id,
-                                    tagId = tag.id
-                                )
-                            }
-                            db.noteTagDao().insertAll(crossRefs)
-                        }
-                        else -> {}
-                    }
-                }
-            }
-            else -> {}
+    private suspend fun syncTags(tagRepo: TagRepository, noteRepo: NoteRepository) {
+        // 新版逻辑：遍历所有本地笔记，逐个拉取标签并更新绑定关系
+        val notes = db.noteDao().getAllSync()
+        for (note in notes) {
+            tagRepo.syncTagsForNote(note.id)
         }
     }
 

@@ -13,5 +13,7 @@ data class NoteEntity(
     val folderId: Long,
     val createdAt: String,
     val updatedAt: String,
-    val isDeleted: Boolean = false
+    val isDeleted: Boolean = false,
+    val authorId: Long = 0,
+    val isPublic: Boolean = false
 )

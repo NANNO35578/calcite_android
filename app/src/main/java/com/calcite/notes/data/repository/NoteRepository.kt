@@ -4,12 +4,16 @@ import android.content.Context
 import com.calcite.notes.data.local.dao.NoteDao
 import com.calcite.notes.data.local.entity.NoteEntity
 import com.calcite.notes.data.remote.ApiService
+import com.calcite.notes.model.CollectNoteRequest
 import com.calcite.notes.model.CreateNoteRequest
 import com.calcite.notes.model.DeleteNoteRequest
+import com.calcite.notes.model.LikeNoteRequest
 import com.calcite.notes.model.Note
 import com.calcite.notes.model.NoteCreateData
 import com.calcite.notes.model.NoteDetail
+import com.calcite.notes.model.RecommendNoteItem
 import com.calcite.notes.model.UpdateNoteRequest
+import com.calcite.notes.model.ViewNoteRequest
 import com.calcite.notes.utils.NetworkUtils
 import com.calcite.notes.utils.Result
 import kotlinx.coroutines.flow.Flow
@@ -76,17 +80,7 @@ class NoteRepository(
                 // 拉取详情并写入本地
                 val detailRes = apiService.getNoteDetail(response.data.note_id)
                 detailRes.data?.let {
-                    noteDao.insert(
-                        NoteEntity(
-                            id = it.id,
-                            title = it.title,
-                            content = it.content,
-                            summary = it.summary,
-                            folderId = it.folder_id ?: 0L,
-                            createdAt = it.created_at ?: "",
-                            updatedAt = it.updated_at ?: ""
-                        )
-                    )
+                    noteDao.insert(it.toEntity())
                 }
                 Result.Success(response.data)
             } else {
@@ -97,27 +91,17 @@ class NoteRepository(
         }
     }
 
-    suspend fun updateNote(context: Context, noteId: Long, title: String? = null, content: String? = null, summary: String? = null, folderId: Long? = null): Result<Unit> {
+    suspend fun updateNote(context: Context, noteId: Long, title: String? = null, content: String? = null, summary: String? = null, folderId: Long? = null, isPublic: Boolean? = null): Result<Unit> {
         if (!NetworkUtils.isNetworkAvailable(context)) {
             return Result.Error("无网络连接，无法更新笔记")
         }
         return try {
-            val response = apiService.updateNote(UpdateNoteRequest(noteId, title, content, summary, folderId))
+            val response = apiService.updateNote(UpdateNoteRequest(noteId, title, content, summary, folderId, isPublic))
             if (response.code == 0) {
                 // 更新本地
                 val detailRes = apiService.getNoteDetail(noteId)
                 detailRes.data?.let {
-                    noteDao.insert(
-                        NoteEntity(
-                            id = it.id,
-                            title = it.title,
-                            content = it.content,
-                            summary = it.summary,
-                            folderId = it.folder_id ?: 0L,
-                            createdAt = it.created_at ?: "",
-                            updatedAt = it.updated_at ?: ""
-                        )
-                    )
+                    noteDao.insert(it.toEntity())
                 }
                 Result.Success(Unit)
             } else {
@@ -213,17 +197,7 @@ class NoteRepository(
         return if (NetworkUtils.isNetworkAvailable(context)) {
             val result = getNoteDetailFromRemote(noteId)
             if (result is Result.Success) {
-                noteDao.insert(
-                    NoteEntity(
-                        id = result.data.id,
-                        title = result.data.title,
-                        content = result.data.content,
-                        summary = result.data.summary,
-                        folderId = result.data.folder_id ?: 0L,
-                        createdAt = result.data.created_at ?: "",
-                        updatedAt = result.data.updated_at ?: ""
-                    )
-                )
+                noteDao.insert(result.data.toEntity())
             }
             result
         } else {
@@ -233,6 +207,83 @@ class NoteRepository(
             } else {
                 Result.Error("本地无此笔记缓存")
             }
+        }
+    }
+
+    // =================== 笔记交互 ===================
+    suspend fun viewNote(context: Context, noteId: Long): Result<Unit> {
+        if (!NetworkUtils.isNetworkAvailable(context)) {
+            return Result.Error("无网络连接")
+        }
+        return try {
+            val response = apiService.viewNote(ViewNoteRequest(noteId))
+            if (response.code == 0) Result.Success(Unit) else Result.Error(response.message)
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "网络请求失败")
+        }
+    }
+
+    suspend fun likeNote(context: Context, noteId: Long): Result<Unit> {
+        if (!NetworkUtils.isNetworkAvailable(context)) {
+            return Result.Error("无网络连接")
+        }
+        return try {
+            val response = apiService.likeNote(LikeNoteRequest(noteId))
+            if (response.code == 0) Result.Success(Unit) else Result.Error(response.message)
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "网络请求失败")
+        }
+    }
+
+    suspend fun collectNote(context: Context, noteId: Long): Result<Unit> {
+        if (!NetworkUtils.isNetworkAvailable(context)) {
+            return Result.Error("无网络连接")
+        }
+        return try {
+            val response = apiService.collectNote(CollectNoteRequest(noteId))
+            if (response.code == 0) Result.Success(Unit) else Result.Error(response.message)
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "网络请求失败")
+        }
+    }
+
+    suspend fun unlikeNote(context: Context, noteId: Long): Result<Unit> {
+        if (!NetworkUtils.isNetworkAvailable(context)) {
+            return Result.Error("无网络连接")
+        }
+        return try {
+            val response = apiService.unlikeNote(noteId)
+            if (response.code == 0) Result.Success(Unit) else Result.Error(response.message)
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "网络请求失败")
+        }
+    }
+
+    suspend fun uncollectNote(context: Context, noteId: Long): Result<Unit> {
+        if (!NetworkUtils.isNetworkAvailable(context)) {
+            return Result.Error("无网络连接")
+        }
+        return try {
+            val response = apiService.uncollectNote(noteId)
+            if (response.code == 0) Result.Success(Unit) else Result.Error(response.message)
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "网络请求失败")
+        }
+    }
+
+    suspend fun getRecommendNotes(context: Context, page: Int = 1, pageSize: Int = 10): Result<List<RecommendNoteItem>> {
+        if (!NetworkUtils.isNetworkAvailable(context)) {
+            return Result.Error("无网络连接")
+        }
+        return try {
+            val response = apiService.getRecommendNotes(page, pageSize)
+            if (response.code == 0) {
+                Result.Success(response.data ?: emptyList())
+            } else {
+                Result.Error(response.message)
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "网络请求失败")
         }
     }
 
@@ -252,6 +303,20 @@ class NoteRepository(
         summary = summary,
         folder_id = folderId,
         created_at = createdAt,
-        updated_at = updatedAt
+        updated_at = updatedAt,
+        author_id = authorId,
+        is_public = if (isPublic) 1 else 0
+    )
+
+    private fun NoteDetail.toEntity(): NoteEntity = NoteEntity(
+        id = id,
+        title = title,
+        content = content,
+        summary = summary,
+        folderId = folder_id ?: 0L,
+        createdAt = created_at ?: "",
+        updatedAt = updated_at ?: "",
+        authorId = author_id,
+        isPublic = is_public == 1
     )
 }

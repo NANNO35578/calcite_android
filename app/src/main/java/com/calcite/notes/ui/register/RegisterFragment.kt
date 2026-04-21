@@ -24,7 +24,7 @@ class RegisterFragment : Fragment() {
         val apiService = RetrofitClient.getApiService(requireContext())
         val appDataStore = AppDataStore(requireContext())
         val repository = AuthRepository(apiService, appDataStore)
-        RegisterViewModel.Factory(repository)
+        RegisterViewModel.Factory(repository, appDataStore)
     }
 
     override fun onCreateView(

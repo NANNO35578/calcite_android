@@ -9,5 +9,7 @@ data class SearchResultItem(
     val updated_at: String,
     val highlight_title: String?,
     val highlight_content: String?,
-    val score: Double
+    val score: Double,
+    val author_id: Long = 0,
+    val is_public: Int = 0
 )

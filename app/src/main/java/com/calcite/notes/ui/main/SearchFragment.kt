@@ -13,11 +13,15 @@ import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.calcite.notes.R
+import com.calcite.notes.data.local.AppDataStore
 import com.calcite.notes.data.remote.RetrofitClient
 import com.calcite.notes.data.repository.SearchRepository
 import com.calcite.notes.databinding.FragmentSearchBinding
 import com.calcite.notes.databinding.ItemSearchResultBinding
 import com.calcite.notes.model.SearchResultItem
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import androidx.lifecycle.lifecycleScope
 
 class SearchFragment : Fragment() {
 
@@ -30,6 +34,7 @@ class SearchFragment : Fragment() {
     }
 
     private lateinit var resultAdapter: SearchResultAdapter
+    private var currentUserId: Long = 0L
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -43,9 +48,12 @@ class SearchFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        lifecycleScope.launch {
+            currentUserId = AppDataStore(requireContext()).userId.first() ?: 0L
+        }
+
         resultAdapter = SearchResultAdapter { item ->
-            val bundle = bundleOf("noteId" to item.id)
-            findNavController().navigate(R.id.noteEditorFragment, bundle)
+            onSearchResultClick(item)
         }
 
         binding.recyclerResults.layoutManager = LinearLayoutManager(requireContext())
@@ -59,6 +67,14 @@ class SearchFragment : Fragment() {
             }
         })
 
+        binding.switchPublicSearch.setOnCheckedChangeListener { _, isChecked ->
+            viewModel.togglePublicSearch(isChecked)
+            val keyword = binding.etSearch.text.toString().trim()
+            if (keyword.isNotEmpty()) {
+                viewModel.search(keyword)
+            }
+        }
+
         viewModel.searchResults.observe(viewLifecycleOwner) { results ->
             resultAdapter.submitList(results)
             binding.tvEmpty.visibility = if (results.isEmpty() && binding.etSearch.text.isNotEmpty()) {
@@ -70,6 +86,17 @@ class SearchFragment : Fragment() {
 
         viewModel.isLoading.observe(viewLifecycleOwner) { loading ->
             binding.progressBar.visibility = if (loading) View.VISIBLE else View.GONE
+        }
+    }
+
+    private fun onSearchResultClick(item: SearchResultItem) {
+        val isOwnNote = item.author_id == currentUserId
+        if (isOwnNote) {
+            val bundle = bundleOf("noteId" to item.id)
+            findNavController().navigate(R.id.noteEditorFragment, bundle)
+        } else {
+            val bundle = bundleOf("noteId" to item.id)
+            findNavController().navigate(R.id.notePreviewFragment, bundle)
         }
     }
 

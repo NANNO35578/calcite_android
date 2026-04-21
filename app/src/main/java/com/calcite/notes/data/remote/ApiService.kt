@@ -1,19 +1,19 @@
 package com.calcite.notes.data.remote
 
 import com.calcite.notes.model.ApiResponse
-import com.calcite.notes.model.BindTagRequest
+import com.calcite.notes.model.CollectNoteRequest
 import com.calcite.notes.model.CreateFolderRequest
 import com.calcite.notes.model.CreateNoteRequest
-import com.calcite.notes.model.CreateTagRequest
 import com.calcite.notes.model.DeleteFileRequest
 import com.calcite.notes.model.DeleteFolderRequest
 import com.calcite.notes.model.DeleteNoteRequest
-import com.calcite.notes.model.DeleteTagRequest
 import com.calcite.notes.model.FileItem
 import com.calcite.notes.model.FileStatusData
 import com.calcite.notes.model.FileUploadData
 import com.calcite.notes.model.Folder
 import com.calcite.notes.model.FolderCreateData
+import com.calcite.notes.model.HotTagItem
+import com.calcite.notes.model.LikeNoteRequest
 import com.calcite.notes.model.LoginData
 import com.calcite.notes.model.LoginRequest
 import com.calcite.notes.model.Note
@@ -21,18 +21,19 @@ import com.calcite.notes.model.NoteCreateData
 import com.calcite.notes.model.NoteDetail
 import com.calcite.notes.model.OcrRecognizeData
 import com.calcite.notes.model.OcrStatusData
+import com.calcite.notes.model.RecommendNoteItem
 import com.calcite.notes.model.RegisterData
 import com.calcite.notes.model.RegisterRequest
 import com.calcite.notes.model.SearchResultItem
 import com.calcite.notes.model.Tag
-import com.calcite.notes.model.TagCreateData
 import com.calcite.notes.model.UpdateFolderRequest
 import com.calcite.notes.model.UpdateNoteRequest
-import com.calcite.notes.model.UpdateTagRequest
 import com.calcite.notes.model.UserProfile
+import com.calcite.notes.model.ViewNoteRequest
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Multipart
 import retrofit2.http.POST
@@ -71,9 +72,31 @@ interface ApiService {
     @GET("/api/note/search")
     suspend fun searchNotes(
         @Query("keyword") keyword: String,
+        @Query("is_public") isPublic: Int? = null,
         @Query("from") from: Int = 0,
         @Query("size") size: Int = 20
     ): ApiResponse<List<SearchResultItem>>
+
+    @POST("/api/note/view")
+    suspend fun viewNote(@Body request: ViewNoteRequest): ApiResponse<Unit>
+
+    @POST("/api/note/like")
+    suspend fun likeNote(@Body request: LikeNoteRequest): ApiResponse<Unit>
+
+    @POST("/api/note/collect")
+    suspend fun collectNote(@Body request: CollectNoteRequest): ApiResponse<Unit>
+
+    @DELETE("/api/notes/like")
+    suspend fun unlikeNote(@Query("note_id") noteId: Long): ApiResponse<Unit>
+
+    @DELETE("/api/notes/collect")
+    suspend fun uncollectNote(@Query("note_id") noteId: Long): ApiResponse<Unit>
+
+    @GET("/api/recommend/notes")
+    suspend fun getRecommendNotes(
+        @Query("page") page: Int = 1,
+        @Query("page_size") pageSize: Int = 10
+    ): ApiResponse<List<RecommendNoteItem>>
 
     // Folder
     @POST("/api/folder/create")
@@ -89,20 +112,14 @@ interface ApiService {
     suspend fun getFolderList(@Query("folder_id") folderId: Long): ApiResponse<List<Folder>>
 
     // Tag
-    @POST("/api/tag/create")
-    suspend fun createTag(@Body request: CreateTagRequest): ApiResponse<TagCreateData>
+    @GET("/api/notes/tags")
+    suspend fun getNoteTags(@Query("id") noteId: Long): ApiResponse<List<Tag>>
 
-    @POST("/api/tag/update")
-    suspend fun updateTag(@Body request: UpdateTagRequest): ApiResponse<Unit>
+    @POST("/api/notes/tags/ai")
+    suspend fun aiGenerateTags(@Query("id") noteId: Long): ApiResponse<List<Tag>>
 
-    @POST("/api/tag/delete")
-    suspend fun deleteTag(@Body request: DeleteTagRequest): ApiResponse<Unit>
-
-    @GET("/api/tag/list")
-    suspend fun getTagList(@Query("note_id") noteId: Long? = null): ApiResponse<List<Tag>>
-
-    @POST("/api/tag/bind")
-    suspend fun bindTags(@Body request: BindTagRequest): ApiResponse<Unit>
+    @GET("/api/tags/hot")
+    suspend fun getHotTags(): ApiResponse<List<HotTagItem>>
 
     // File
     @Multipart

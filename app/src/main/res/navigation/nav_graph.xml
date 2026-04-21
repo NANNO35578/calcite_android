@@ -56,6 +56,16 @@
         android:name="com.calcite.notes.ui.main.SearchFragment"
         android:label="SearchFragment" />
 
+    <fragment
+        android:id="@+id/notePreviewFragment"
+        android:name="com.calcite.notes.ui.main.NotePreviewFragment"
+        android:label="NotePreviewFragment" />
+
+    <fragment
+        android:id="@+id/recommendFragment"
+        android:name="com.calcite.notes.ui.main.RecommendFragment"
+        android:label="RecommendFragment" />
+
     <!-- 全局搜索跳转 -->
     <action
         android:id="@+id/action_global_searchFragment"

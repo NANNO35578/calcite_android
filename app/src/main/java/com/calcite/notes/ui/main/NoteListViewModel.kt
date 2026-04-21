@@ -114,17 +114,14 @@ class NoteListViewModel(
         viewModelScope.launch {
             _isRefreshing.value = true
             val folderResult = folderRepository.syncAllFolders(context)
-            val tagResult = tagRepository.syncAllTags(context)
             val fileResult = fileRepository.syncAllFiles(context)
             _isRefreshing.value = false
-            val allSuccess = folderResult is Result.Success
-                    && tagResult is Result.Success && fileResult is Result.Success
+            val allSuccess = folderResult is Result.Success && fileResult is Result.Success
             if (allSuccess) {
                 _operationResult.value = Result.Success("已同步")
             } else {
                 val msg = listOfNotNull(
                     (folderResult as? Result.Error)?.message,
-                    (tagResult as? Result.Error)?.message,
                     (fileResult as? Result.Error)?.message
                 ).firstOrNull() ?: "同步失败"
                 _operationResult.value = Result.Error(msg)

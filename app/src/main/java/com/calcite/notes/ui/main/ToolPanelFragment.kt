@@ -9,7 +9,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
-import android.widget.EditText
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
@@ -18,13 +17,13 @@ import androidx.fragment.app.viewModels
 import com.calcite.notes.MainActivity
 import com.calcite.notes.R
 import com.calcite.notes.databinding.FragmentToolPanelBinding
+import com.calcite.notes.databinding.ItemFileBinding
 import com.calcite.notes.model.FileItem
-import com.calcite.notes.model.Tag
 import com.calcite.notes.utils.Result
 import com.google.android.material.chip.Chip
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.launch
 import androidx.lifecycle.lifecycleScope
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
@@ -61,19 +60,43 @@ class ToolPanelFragment : Fragment() {
         setupTabs()
         setupStatusFilter()
 
-        binding.btnAddTag.setOnClickListener { showCreateTagDialog() }
         binding.btnUploadFile.setOnClickListener { filePickerLauncher.launch("*/*") }
+        binding.btnRefreshTags.setOnClickListener {
+            if (currentNoteId > 0) viewModel.refreshTags(currentNoteId)
+        }
+        binding.btnDeleteNote.setOnClickListener { showDeleteNoteConfirm() }
+        binding.btnLike.setOnClickListener { viewModel.toggleLike() }
+        binding.btnCollect.setOnClickListener { viewModel.toggleCollect() }
+
+        binding.etNoteSummary.setOnFocusChangeListener { _, hasFocus ->
+            if (!hasFocus && currentNoteId > 0) {
+                val summary = binding.etNoteSummary.text.toString().trim()
+                val currentSummary = viewModel.noteDetail.value?.summary ?: ""
+                if (summary != currentSummary) {
+                    viewModel.updateSummary(currentNoteId, summary)
+                }
+            }
+        }
+
+        binding.switchIsPublic.setOnCheckedChangeListener { _, isChecked ->
+            if (currentNoteId > 0) {
+                viewModel.togglePublic(currentNoteId, isChecked)
+            }
+        }
 
         binding.swipeRefresh.setOnRefreshListener {
             viewModel.loadAll()
             binding.swipeRefresh.isRefreshing = false
         }
 
-        viewModel.allTags.observe(viewLifecycleOwner) {
-            renderTags()
+        viewModel.noteDetail.observe(viewLifecycleOwner) { detail ->
+            renderNoteInfo(detail)
+        }
+        viewModel.isOwnNote.observe(viewLifecycleOwner) {
+            renderNoteInfo(viewModel.noteDetail.value)
         }
         viewModel.currentNoteTags.observe(viewLifecycleOwner) {
-            renderTags()
+            renderTags(it)
         }
         viewModel.files.observe(viewLifecycleOwner) {
             renderFiles(it)
@@ -102,7 +125,7 @@ class ToolPanelFragment : Fragment() {
         binding.tabLayout.addOnTabSelectedListener(object : com.google.android.material.tabs.TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: com.google.android.material.tabs.TabLayout.Tab?) {
                 when (tab?.position) {
-                    0 -> showTagPanel()
+                    0 -> showNoteInfoPanel()
                     1 -> showFilePanel()
                 }
             }
@@ -111,68 +134,72 @@ class ToolPanelFragment : Fragment() {
         })
     }
 
-    private fun showTagPanel() {
-        binding.layoutTags.visibility = View.VISIBLE
+    private fun showNoteInfoPanel() {
+        binding.layoutNoteInfo.visibility = View.VISIBLE
         binding.layoutFilesContainer.visibility = View.GONE
     }
 
     private fun showFilePanel() {
-        binding.layoutTags.visibility = View.GONE
+        binding.layoutNoteInfo.visibility = View.GONE
         binding.layoutFilesContainer.visibility = View.VISIBLE
     }
 
-    private fun renderTags() {
-        val allTags = viewModel.allTags.value ?: emptyList()
-        val currentTags = viewModel.currentNoteTags.value ?: emptyList()
-        val hasNote = currentNoteId > 0
+    private fun renderNoteInfo(detail: com.calcite.notes.model.NoteDetail?) {
+        val hasNote = currentNoteId > 0 && detail != null
 
-        if (hasNote) {
-            binding.layoutCurrentNoteTags.visibility = View.VISIBLE
-            binding.tvAllTagsTitle.text = "全部标签（点击绑定）"
+        if (!hasNote) {
+            binding.tvNoNoteHint.visibility = View.VISIBLE
+            binding.layoutNoteInfoContent.visibility = View.GONE
+            return
+        }
 
-            // 当前笔记标签
-            binding.chipGroupCurrentNoteTags.removeAllViews()
-            for (tag in currentTags) {
-                val chip = Chip(requireContext()).apply {
-                    text = tag.name
-                    isCloseIconVisible = true
-                    setOnCloseIconClickListener {
-                        viewModel.unbindTag(tag.id)
-                    }
-                }
-                binding.chipGroupCurrentNoteTags.addView(chip)
-            }
+        binding.tvNoNoteHint.visibility = View.GONE
+        binding.layoutNoteInfoContent.visibility = View.VISIBLE
 
-            // 全部标签（排除已绑定的）
-            binding.chipGroupAllTags.removeAllViews()
-            val currentTagIds = currentTags.map { it.id }.toSet()
-            for (tag in allTags) {
-                if (tag.id in currentTagIds) continue
-                val chip = Chip(requireContext()).apply {
-                    text = tag.name
-                    isCheckable = false
-                    setOnClickListener {
-                        viewModel.bindTag(tag.id)
-                    }
-                }
-                binding.chipGroupAllTags.addView(chip)
-            }
+        binding.tvNoteTitle.text = detail.title
+        binding.etNoteSummary.setText(detail.summary ?: "")
+        binding.tvCreatedAt.text = detail.created_at ?: ""
+        binding.tvUpdatedAt.text = detail.updated_at ?: ""
+
+        val isOwn = viewModel.isOwnNote.value == true
+
+        if (isOwn) {
+            binding.etNoteSummary.isEnabled = true
+            binding.layoutPublicSwitch.visibility = View.VISIBLE
+            binding.switchIsPublic.isChecked = detail.is_public == 1
+            binding.labelAuthorId.visibility = View.GONE
+            binding.tvAuthorId.visibility = View.GONE
+            binding.btnDeleteNote.visibility = View.VISIBLE
         } else {
-            binding.layoutCurrentNoteTags.visibility = View.GONE
-            binding.tvAllTagsTitle.text = "全部标签（长按管理）"
+            binding.etNoteSummary.isEnabled = false
+            binding.layoutPublicSwitch.visibility = View.GONE
+            binding.labelAuthorId.visibility = View.VISIBLE
+            binding.tvAuthorId.visibility = View.VISIBLE
+            binding.tvAuthorId.text = detail.author_id.toString()
+            binding.btnDeleteNote.visibility = View.GONE
+        }
 
-            binding.chipGroupAllTags.removeAllViews()
-            for (tag in allTags) {
-                val chip = Chip(requireContext()).apply {
-                    text = tag.name
-                    isCheckable = false
-                    setOnLongClickListener {
-                        showTagMenu(tag)
-                        true
-                    }
-                }
-                binding.chipGroupAllTags.addView(chip)
+        // 点赞/收藏按钮状态
+        binding.btnLike.text = if (detail.has_liked) "已点赞 (${detail.like_count})" else "点赞 (${detail.like_count})"
+        binding.btnCollect.text = if (detail.has_collected) "已收藏 (${detail.collect_count})" else "收藏 (${detail.collect_count})"
+    }
+
+    private fun renderTags(tags: List<com.calcite.notes.model.Tag>) {
+        binding.chipGroupNoteTags.removeAllViews()
+        if (tags.isEmpty()) {
+            val chip = Chip(requireContext()).apply {
+                text = "暂无标签"
+                isClickable = false
             }
+            binding.chipGroupNoteTags.addView(chip)
+            return
+        }
+        for (tag in tags) {
+            val chip = Chip(requireContext()).apply {
+                text = tag.name
+                isClickable = false
+            }
+            binding.chipGroupNoteTags.addView(chip)
         }
     }
 
@@ -207,7 +234,7 @@ class ToolPanelFragment : Fragment() {
             return
         }
         for (file in files) {
-            val itemBinding = com.calcite.notes.databinding.ItemFileBinding.inflate(
+            val itemBinding = ItemFileBinding.inflate(
                 LayoutInflater.from(requireContext()), binding.layoutFiles, false
             )
             itemBinding.tvFileName.text = file.file_name
@@ -268,6 +295,19 @@ class ToolPanelFragment : Fragment() {
             .show()
     }
 
+    private fun showDeleteNoteConfirm() {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("删除笔记")
+            .setMessage("确定删除这篇笔记吗？此操作不可恢复。")
+            .setPositiveButton("删除") { _, _ ->
+                if (currentNoteId > 0) {
+                    viewModel.deleteNote(currentNoteId)
+                }
+            }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+
     private fun uploadFile(uri: Uri) {
         val part = uriToMultipartPart(uri) ?: return
         viewModel.uploadFile(part, currentNoteId.takeIf { it != 0L })
@@ -304,59 +344,6 @@ class ToolPanelFragment : Fragment() {
             result = uri.lastPathSegment
         }
         return result
-    }
-
-    private fun showTagMenu(tag: Tag) {
-        val options = arrayOf("重命名", "删除")
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle(tag.name)
-            .setItems(options) { _, which ->
-                when (which) {
-                    0 -> showRenameTagDialog(tag)
-                    1 -> showDeleteTagConfirm(tag)
-                }
-            }
-            .show()
-    }
-
-    private fun showCreateTagDialog() {
-        val input = EditText(requireContext()).apply { hint = "标签名称" }
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle("新建标签")
-            .setView(input)
-            .setPositiveButton("创建") { _, _ ->
-                val name = input.text.toString().trim()
-                if (name.isNotEmpty()) viewModel.createTag(name)
-            }
-            .setNegativeButton("取消", null)
-            .show()
-    }
-
-    private fun showRenameTagDialog(tag: Tag) {
-        val input = EditText(requireContext()).apply {
-            setText(tag.name)
-            selectAll()
-        }
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle("重命名标签")
-            .setView(input)
-            .setPositiveButton("确定") { _, _ ->
-                val name = input.text.toString().trim()
-                if (name.isNotEmpty()) viewModel.renameTag(tag.id, name)
-            }
-            .setNegativeButton("取消", null)
-            .show()
-    }
-
-    private fun showDeleteTagConfirm(tag: Tag) {
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle("删除标签")
-            .setMessage("确定删除标签 \"${tag.name}\" 吗？")
-            .setPositiveButton("删除") { _, _ ->
-                viewModel.deleteTag(tag.id)
-            }
-            .setNegativeButton("取消", null)
-            .show()
     }
 
     override fun onDestroyView() {

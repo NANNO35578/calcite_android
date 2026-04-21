@@ -6,9 +6,9 @@ import com.calcite.notes.utils.Result
 
 class SearchRepository(private val apiService: ApiService) {
 
-    suspend fun search(keyword: String, from: Int = 0, size: Int = 20): Result<List<SearchResultItem>> {
+    suspend fun search(keyword: String, isPublic: Int? = null, from: Int = 0, size: Int = 20): Result<List<SearchResultItem>> {
         return try {
-            val response = apiService.searchNotes(keyword, from, size)
+            val response = apiService.searchNotes(keyword, isPublic, from, size)
             if (response.code == 0) {
                 Result.Success(response.data ?: emptyList())
             } else {

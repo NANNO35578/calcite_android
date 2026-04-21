@@ -5,12 +5,16 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.calcite.notes.data.local.AppDataStore
 import com.calcite.notes.data.repository.AuthRepository
 import com.calcite.notes.model.RegisterData
 import com.calcite.notes.utils.Result
 import kotlinx.coroutines.launch
 
-class RegisterViewModel(private val repository: AuthRepository) : ViewModel() {
+class RegisterViewModel(
+    private val repository: AuthRepository,
+    private val appDataStore: AppDataStore
+) : ViewModel() {
 
     private val _registerResult = MutableLiveData<Result<RegisterData>>()
     val registerResult: LiveData<Result<RegisterData>> = _registerResult
@@ -27,14 +31,23 @@ class RegisterViewModel(private val repository: AuthRepository) : ViewModel() {
 
         _registerResult.value = Result.Loading
         viewModelScope.launch {
-            _registerResult.value = repository.register(username, email, password)
+            val result = repository.register(username, email, password)
+            if (result is Result.Success) {
+                result.data?.let {
+                    appDataStore.saveUserId(it.user_id)
+                }
+            }
+            _registerResult.value = result
         }
     }
 
-    class Factory(private val repository: AuthRepository) : ViewModelProvider.Factory {
+    class Factory(
+        private val repository: AuthRepository,
+        private val appDataStore: AppDataStore
+    ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return RegisterViewModel(repository) as T
+            return RegisterViewModel(repository, appDataStore) as T
         }
     }
 }

@@ -10,6 +10,7 @@ import android.widget.Toast
 import androidx.activity.addCallback
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.GravityCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -115,6 +116,12 @@ class MainActivity : AppCompatActivity() {
                     mainViewModel.createNewNote()
                     true
                 }
+                R.id.menu_recommend -> {
+                    if (navController.currentDestination?.id != R.id.recommendFragment) {
+                        navController.navigate(R.id.recommendFragment)
+                    }
+                    true
+                }
                 R.id.menu_ocr -> {
                     ocrImagePicker.launch("image/*")
                     true
@@ -158,6 +165,30 @@ class MainActivity : AppCompatActivity() {
                     when (currentId) {
                         R.id.loginFragment, R.id.registerFragment, R.id.noteEditorFragment -> {
                             finish()
+                        }
+                        R.id.recommendFragment, R.id.notePreviewFragment, R.id.searchFragment -> {
+                            // 返回最近编辑的笔记，清空中间回退栈
+                            lifecycleScope.launch {
+                                val noteId = appDataStore.currentNoteId.first()
+                                if (noteId > 0) {
+                                    val bundle = Bundle().apply { putLong("noteId", noteId) }
+                                    navController.navigate(
+                                        R.id.noteEditorFragment,
+                                        bundle,
+                                        NavOptions.Builder()
+                                            .setPopUpTo(R.id.nav_graph, true)
+                                            .build()
+                                    )
+                                } else {
+                                    navController.navigate(
+                                        R.id.homeFragment,
+                                        null,
+                                        NavOptions.Builder()
+                                            .setPopUpTo(R.id.nav_graph, true)
+                                            .build()
+                                    )
+                                }
+                            }
                         }
                         else -> {
                             // 其他页面返回最近编辑的笔记，禁止多层返回
@@ -238,11 +269,12 @@ class MainActivity : AppCompatActivity() {
             }
         }
         val filter = IntentFilter("com.calcite.notes.ACTION_TOKEN_EXPIRED")
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(tokenExpiredReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            registerReceiver(tokenExpiredReceiver, filter)
-        }
+        androidx.core.content.ContextCompat.registerReceiver(
+            this,
+            tokenExpiredReceiver,
+            filter,
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
     }
 
     override fun onDestroy() {

@@ -6,24 +6,7 @@ data class Tag(
     val created_at: String
 )
 
-data class CreateTagRequest(
-    val name: String
-)
-
-data class UpdateTagRequest(
-    val tag_id: Long,
-    val name: String
-)
-
-data class DeleteTagRequest(
-    val tag_id: Long
-)
-
-data class BindTagRequest(
-    val note_id: Long,
-    val tag_ids: List<Long>
-)
-
-data class TagCreateData(
-    val tag_id: Long
+data class HotTagItem(
+    val tag: String,
+    val count: Int
 )

@@ -17,6 +17,7 @@ class AppDataStore(private val context: Context) {
         private val TOKEN_KEY = stringPreferencesKey("token")
         private val TOKEN_EXPIRE_TIME_KEY = longPreferencesKey("token_expire_time")
         private val CURRENT_NOTE_ID_KEY = longPreferencesKey("current_note_id")
+        private val USER_ID_KEY = longPreferencesKey("user_id")
     }
 
     val token: Flow<String?> = context.dataStore.data.map { it[TOKEN_KEY] }
@@ -24,6 +25,8 @@ class AppDataStore(private val context: Context) {
     val tokenExpireTime: Flow<Long> = context.dataStore.data.map { it[TOKEN_EXPIRE_TIME_KEY] ?: 0L }
 
     val currentNoteId: Flow<Long> = context.dataStore.data.map { it[CURRENT_NOTE_ID_KEY] ?: 0L }
+
+    val userId: Flow<Long?> = context.dataStore.data.map { it[USER_ID_KEY] }
 
     suspend fun saveToken(token: String) {
         context.dataStore.edit {
@@ -33,10 +36,22 @@ class AppDataStore(private val context: Context) {
         }
     }
 
+    suspend fun saveUserId(userId: Long) {
+        context.dataStore.edit {
+            it[USER_ID_KEY] = userId
+        }
+    }
+
     suspend fun clearToken() {
         context.dataStore.edit {
             it.remove(TOKEN_KEY)
             it.remove(TOKEN_EXPIRE_TIME_KEY)
+        }
+    }
+
+    suspend fun clearUserId() {
+        context.dataStore.edit {
+            it.remove(USER_ID_KEY)
         }
     }
 

@@ -50,9 +50,11 @@ class LoginViewModel(
         viewModelScope.launch {
             val result = repository.login(username, password)
             if (result is Result.Success) {
-                // 登录成功后同步文件夹树（含笔记）、标签、文件
+                result.data?.let {
+                    appDataStore.saveUserId(it.user_id)
+                }
+                // 登录成功后同步文件夹树（含笔记）、文件
                 folderRepository.syncAllFolders(context)
-                tagRepository.syncAllTags(context)
                 fileRepository.syncAllFiles(context)
                 val noteId = appDataStore.currentNoteId.first()
                 _navigateToNoteId.value = noteId.takeIf { it > 0 }

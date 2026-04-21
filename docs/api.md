@@ -22,38 +22,45 @@
 
 ### API 总览
 
-| 接口                | 方法 | 说明      |
-| ------------------ | ---- | -------- |
-| /api/auth/register | POST | [用户注册](#11-用户注册-post-apiauthregister)         |
-| /api/auth/login    | POST | [用户登录](#12-用户登录-post-apiauthlogin)         |
-| /api/auth/logout   | POST | [退出登录](#13-退出登录-post-apiauthlogout)         |
-| /api/user/profile  | GET  | [获取用户信息](#14-获取用户信息-get-apiuserprofile)      |
-|                    |      |                 |
-| /api/note/create   | POST | [新建笔记](#21-创建笔记-post-apinotecreate)         |
-| /api/note/update   | POST | [更新笔记](#22-更新笔记-post-apinoteupdate)         |
-| /api/note/delete   | POST | [删除笔记](#23-删除笔记-post-apinotedelete)         |
-| /api/note/list     | GET  | [获取笔记列表](#24-获取笔记列表-get-apinotelist)      |
-| /api/note/detail   | GET  | [获取笔记详情](#25-获取笔记详情-get-apinotedetail)      |
-| /api/note/search   | GET  | [全文搜索](#26-全文搜索笔记-get-apinotesearch)         |
-|                    |      |                 |
-| /api/tag/create    | POST | [创建标签](#31-创建标签-post-apitagcreate)           |
-| /api/tag/list      | GET  | [获取标签列表](#32-获取标签列表-get-apitaglist)         |
-| /api/tag/bind      | POST | [绑定/解除笔记标签](#33-绑定笔记标签-post-apitagbind)   |
-| /api/tag/update    | POST | [更新标签](#34-更新标签-post-apitagupdate)           |
-| /api/tag/delete    | POST | [删除标签](#35-删除标签-post-apitagdelete)           |
-| /api/folder/create | POST | [创建文件夹](#36-创建文件夹-post-apifoldercreate)           |
-| /api/folder/list   | GET  | [获取文件夹列表](#39-获取文件夹列表-get-apifolderlist)         |
-| /api/folder/update | POST | [更新文件夹](#37-更新文件夹-post-apifolderupdate)           |
-| /api/folder/delete | POST | [删除文件夹](#38-删除文件夹-post-apifolderdelete)           |
-|                    |      |                 |
-| /api/file/upload   | POST | [上传文件到MinIO](#41-上传文件-post-apifileupload)        |
-| /api/file/list     | GET  | [获取文件列表](#42-获取文件列表-get-apifilelist)             |
-| /api/file/delete   | POST | [删除文件(MinIO+数据库)](#43-删除文件-post-apifiledelete) |
-| /api/file/status   | GET  | [查询文件上传状态](#44-查询文件上传状态-get-apifilestatus)          |
-| /api/file/info     | GET  | [获取单个文件详情](#45-获取单个文件详情-get-apifileinfo)          |
-|                    |      |                 |
-| /api/ocr/recognize | POST | [上传文件进行OCR识别,生成新笔记](#461-提交ocr任务-post-apiocrrecognize)   |
-| /api/ocr/status    | GET  | [查询OCR处理状态](#462-查询ocr状态-get-apiocrstatus)         |
+| 接口                   | 方法     | 说明                                                     |
+| -------------------- | ------ | ------------------------------------------------------ |
+| /api/auth/register   | POST   | [用户注册](#11-用户注册-post-apiauthregister)                  |
+| /api/auth/login      | POST   | [用户登录](#12-用户登录-post-apiauthlogin)                     |
+| /api/auth/logout     | POST   | [退出登录](#13-退出登录-post-apiauthlogout)                    |
+| /api/user/profile    | GET    | [获取用户信息](#14-获取用户信息-get-apiuserprofile)                |
+|                      |        |                                                        |
+| /api/note/create     | POST   | [新建笔记](#21-创建笔记-post-apinotecreate)                    |
+| /api/note/update     | POST   | [更新笔记](#22-更新笔记-post-apinoteupdate)                    |
+| /api/note/delete     | POST   | [删除笔记](#23-删除笔记-post-apinotedelete)                    |
+| /api/note/list       | GET    | [获取笔记列表](#24-获取笔记列表-get-apinotelist)                   |
+| /api/note/detail     | GET    | [获取笔记详情](#25-获取笔记详情-get-apinotedetail)                 |
+| /api/note/search     | GET    | [全文搜索](#26-全文搜索笔记-get-apinotesearch)                   |
+|                      |        |                                                        |
+| /api/note/view       | POST   | [浏览笔记](#29-浏览笔记-post-apinoteview)                      |
+| /api/note/like       | POST   | [点赞笔记](#210-点赞笔记-post-apinotelike)                     |
+| /api/note/collect    | POST   | [收藏笔记](#211-收藏笔记-post-apinotecollect)                  |
+| /api/notes/like      | DELETE | [取消点赞](#212-取消点赞-delete-apinoteslike)                  |
+| /api/notes/collect   | DELETE | [取消收藏](#213-取消收藏-delete-apinotescollect)               |
+|                      |        |                                                        |
+| /api/recommend/notes | GET    | [推荐笔记](#214-推荐笔记-get-apirecommendnotes)                |
+|                      |        |                                                        |
+| /api/tags/hot        | GET    | [获取热门标签](#31-获取热门标签-get-apitagshot)                    |
+| /api/notes/tags      | GET    | [获取笔记标签](#27-获取笔记标签列表-get-apinotesidtags)              |
+| /api/notes/tags/ai   | POST   | [AI生成标签](#28-ai生成笔记标签-post-apinotesidtagsai)           |
+|                      |        |                                                        |
+| /api/folder/create   | POST   | [创建文件夹](#36-创建文件夹-post-apifoldercreate)                |
+| /api/folder/list     | GET    | [获取文件夹列表](#39-获取文件夹列表-get-apifolderlist)               |
+| /api/folder/update   | POST   | [更新文件夹](#37-更新文件夹-post-apifolderupdate)                |
+| /api/folder/delete   | POST   | [删除文件夹](#38-删除文件夹-post-apifolderdelete)                |
+|                      |        |                                                        |
+| /api/file/upload     | POST   | [上传文件到MinIO](#41-上传文件-post-apifileupload)              |
+| /api/file/list       | GET    | [获取文件列表](#42-获取文件列表-get-apifilelist)                   |
+| /api/file/delete     | POST   | [删除文件(MinIO+数据库)](#43-删除文件-post-apifiledelete)         |
+| /api/file/status     | GET    | [查询文件上传状态](#44-查询文件上传状态-get-apifilestatus)             |
+| /api/file/info       | GET    | [获取单个文件详情](#45-获取单个文件详情-get-apifileinfo)               |
+|                      |        |                                                        |
+| /api/ocr/recognize   | POST   | [上传文件进行OCR识别,生成新笔记](#461-提交ocr任务-post-apiocrrecognize) |
+| /api/ocr/status      | GET    | [查询OCR处理状态](#462-查询ocr状态-get-apiocrstatus)             |
 
 ---
 
@@ -78,6 +85,7 @@
 ```
 
 **请求参数：**
+
 | 参数     | 类型   | 必填 | 说明           |
 | -------- | ------ | ------ | -------------- |
 | username | string | 是     | 用户名       |
@@ -107,6 +115,7 @@
 ```
 
 **请求参数：**
+
 | 参数     | 类型   | 必填 | 说明     |
 | -------- | ------ | ------ | -------- |
 | username | string | 是     | 用户名   |
@@ -170,14 +179,23 @@ Header: `Authorization: Bearer {token}`
 
 ## 2. 笔记管理 API（核心）
 
-| 接口               | 方法   | 说明       |
-| ---------------- | ---- | -------- |
-| /api/note/create | POST | 新建笔记   |
-| /api/note/update | POST | 更新笔记   |
-| /api/note/delete | POST | 删除笔记   |
-| /api/note/list   | GET  | 获取笔记列表 |
-| /api/note/detail | GET  | 获取笔记详情 |
-| /api/note/search | GET  | 全文搜索   |
+| 接口                 | 方法     | 说明     |
+| ------------------ | ------ | ------ |
+| /api/note/create   | POST   | 新建笔记   |
+| /api/note/update   | POST   | 更新笔记   |
+| /api/note/delete   | POST   | 删除笔记   |
+| /api/note/list     | GET    | 获取笔记列表 |
+| /api/note/detail   | GET    | 获取笔记详情 |
+| /api/note/search   | GET    | 全文搜索   |
+|                    |        |        |
+| /api/notes/tags    | GET    | 获取笔记标签 |
+| /api/notes/tags/ai | POST   | AI生成标签 |
+|                    |        |        |
+| /api/note/view     | POST   | 浏览笔记   |
+| /api/note/like     | POST   | 点赞笔记   |
+| /api/note/collect  | POST   | 收藏笔记   |
+| /api/notes/like    | DELETE | 取消点赞   |
+| /api/notes/collect | DELETE | 取消收藏   |
 
 **鉴权要求：** 所有笔记接口均需通过 Token 鉴权
 
@@ -190,18 +208,15 @@ Header: `Authorization: Bearer {token}`
 ```json
 {
   "title": "我的第一篇笔记",
-  "content": "这是一篇测试笔记内容...",
-  "summary": "笔记摘要",
   "folder_id": 1
 }
 ```
 
 **请求参数：**
+
 | 参数      | 类型   | 必填 | 说明                     |
 | --------- | ------ | ------ | ------------------------ |
 | title     | string | 是     | 笔记标题                 |
-| content   | string | 是     | 笔记内容                 |
-| summary   | string | 否     | 笔记摘要                 |
 | folder_id | int64  | 否     | 所属文件夹ID，0表示未分类 |
 
 **响应示例：**
@@ -227,11 +242,13 @@ Header: `Authorization: Bearer {token}`
   "title": "更新后的标题",
   "content": "更新后的内容",
   "summary": "更新后的摘要",
-  "folder_id": 2
+  "folder_id": 2,
+  "is_public": true
 }
 ```
 
 **请求参数：**
+
 | 参数      | 类型   | 必填 | 说明                       |
 | --------- | ------ | ------ | -------------------------- |
 | note_id   | int64  | 是     | 笔记ID                     |
@@ -239,6 +256,7 @@ Header: `Authorization: Bearer {token}`
 | content   | string | 否     | 更新内容                   |
 | summary   | string | 否     | 更新摘要                   |
 | folder_id | int64  | 否     | 更新文件夹ID，>=0表示更新 |
+| is_public | bool   | 否     | 更新笔记是否公开         |
 
 **响应示例：**
 ```json
@@ -262,6 +280,7 @@ Header: `Authorization: Bearer {token}`
 ```
 
 **请求参数：**
+
 | 参数    | 类型  | 必填 | 说明     |
 | ------- | ----- | ------ | -------- |
 | note_id | int64 | 是     | 笔记ID   |
@@ -283,10 +302,10 @@ Header: `Authorization: Bearer {token}`
 Header: `Authorization: Bearer {token}`
 
 **请求参数：**
-| 参数       | 类型   | 必填 | 说明                                               |
-| ---------- | ------ | ------ | -------------------------------------------------- |
-| folder_id | int64  | 否     | 文件夹ID，0表示所有笔记，不传表示未分类笔记       |
-| tag_ids   | string | 否     | 标签ID数组，用逗号分隔，如 "1,2,3"，空表示不过滤 |
+
+| 参数        | 类型    | 必填  | 说明                 |
+| --------- | ----- | --- | ------------------ |
+| folder_id | int64 | 否   | 文件夹ID，0/不传 表示根目录笔记 |
 
 **响应示例：**
 ```json
@@ -314,24 +333,32 @@ Header: `Authorization: Bearer {token}`
 Header: `Authorization: Bearer {token}`
 
 **请求参数：**
+
 | 参数    | 类型   | 必填 | 说明     |
 | ------- | ------ | ------ | -------- |
 | note_id | string | 是     | 笔记ID   |
 
 **响应示例：**
+- 以下是`GET http://localhost:8888/api/note/detail?note_id=1`的响应
 ```json
 {
-  "code": 0,
-  "message": "获取笔记详情成功",
-  "data": {
-    "id": 1,
-    "title": "我的第一篇笔记",
-    "content": "笔记内容...",
-    "summary": "笔记摘要",
-    "folder_id": 1,
-    "created_at": "2025-01-01 12:00:00",
-    "updated_at": "2025-01-01 12:00:00"
-  }
+    "code": 0,
+    "data": {
+        "author_id": 1,
+        "collect_count": 0,
+        "content": "更新后的内容",
+        "created_at": "2026-01-25 14:25:18",
+        "folder_id": 1,
+        "has_collected": false,
+        "has_liked": false,
+        "id": 1,
+        "is_public": 0,
+        "like_count": 0,
+        "summary": "更新后的摘要",
+        "title": "更新后的标题",
+        "updated_at": "2026-01-25 14:28:46"
+    },
+    "message": "获取笔记详情成功"
 }
 ```
 
@@ -341,30 +368,44 @@ Header: `Authorization: Bearer {token}`
 Header: `Authorization: Bearer {token}`
 
 **请求参数：**
-| 参数    | 类型   | 必填 | 说明                    |
-| ------- | ------ | ------ | ---------------------- |
-| keyword | string | 是     | 搜索关键词              |
-| from    | int    | 否     | 分页起始位置，默认0     |
-| size    | int    | 否     | 每页数量，默认20，最大100 |
+
+| 参数       | 类型     | 必填  | 说明              |
+| -------- | ------ | --- | --------------- |
+| keyword  | string | 是   | 搜索关键词           |
+| isPublic | int    | 否   | 有就搜索公开的         |
+| from     | int    | 否   | 分页起始位置，默认0      |
+| size     | int    | 否   | 每页数量，默认20，最大100 |
 
 **响应示例：**
+- 以下是`GET http://localhost:8888/api/note/search?keyword=C++&is_public=0`的部分响应
 ```json
 {
-  "code": 0,
-  "message": "搜索成功",
-  "data": [
-    {
-      "id": 1,
-      "title": "我的第一篇笔记",
-      "summary": "笔记摘要",
-      "folder_id": 1,
-      "created_at": "2025-01-01 12:00:00",
-      "updated_at": "2025-01-01 12:00:00",
-      "highlight_title": "我的第一篇<mark>笔记</mark>",
-      "highlight_content": "这是一篇关于<mark>笔记</mark>的测试内容...",
-      "score": 1.25
-    }
-  ]
+    "code": 0,
+    "data": [
+        {
+            "author_id": 7,
+            "created_at": "2026-04-19T13:42:35",
+            "highlight_content": "## 笔记2：<mark>C</mark>语言数据类型与变量\n### ... **变量定义与使用**\n```<mark>c</mark>\n// 格式",
+            "highlight_title": "<mark>C</mark>语言数据类型与变量",
+            "id": 125,
+            "score": 4.7718439102172852,
+            "summary": "",
+            "title": "C语言数据类型与变量",
+            "updated_at": "2026-04-19T14:32:35"
+        },
+        {
+            "author_id": 7,
+            "created_at": "2026-04-19T13:42:14",
+            "highlight_content": "## 笔记1：<mark>C</mark>语言基础入门与环境搭建\n# ... **<mark>C</mark>语言概述**：编译型高级语言，执行效率高 ... **第一个<mark>C</mark>程序（固定模板）**\n\n哦,",
+            "highlight_title": "<mark>C</mark>语言基础入门与环境搭建",
+            "id": 124,
+            "score": 4.7718439102172852,
+            "summary": "",
+            "title": "C语言基础入门与环境搭建",
+            "updated_at": "2026-04-20T17:49:06"
+        }
+    ],
+    "message": "搜索成功"
 }
 ```
 
@@ -373,10 +414,295 @@ Header: `Authorization: Bearer {token}`
 - 搜索匹配字段（按权重排序）：title(3x)、tags(2x)、summary(2x)、content(1x)
 - 支持模糊匹配（fuzziness: AUTO）
 - 返回结果按相关度分数降序排列，分数相同按更新时间降序
-- `highlight_title`: 标题中的匹配高亮片段（使用 `<mark>` 标签）
+- `highlight_title`: 标题中的匹配高亮片段（使用 `<mark></mark>` 标签）
 - `highlight_content`: 内容中的匹配高亮片段
 - `score`: 匹配相关度分数
 - 响应不包含完整 `content` 字段，需要详情请调用 `/api/note/detail`
+
+### 2.7 获取笔记标签列表 GET /api/notes/tags
+
+**请求方式：**
+Header: `Authorization: Bearer {token}`
+
+**请求参数：**
+
+| 参数 | 类型  | 必填 | 说明             |
+| ---- | ----- | ---- | ---------------- |
+| id   | int64 | 是   | 笔记ID（路径参数）|
+
+**响应示例：**
+```json
+{
+  "code": 0,
+  "message": "获取标签列表成功",
+  "data": [
+    {
+      "id": 1,
+      "name": "Java"
+    },
+    {
+      "id": 2,
+      "name": "SpringBoot"
+    }
+  ]
+}
+```
+
+### 2.8 AI 生成笔记标签 POST /api/notes/tags/ai
+
+**请求方式：**
+Header: `Authorization: Bearer {token}`
+
+**请求参数：**
+
+| 参数 | 类型  | 必填 | 说明             |
+| ---- | ----- | ---- | ---------------- |
+| id   | int64 | 是   | 笔记ID（路径参数）|
+
+**响应示例：**
+```json
+{
+  "code": 0,
+  "message": "AI标签生成并保存成功",
+  "data": [
+    {
+      "name": "Java"
+    },
+    {
+      "name": "SpringBoot"
+    },
+    {
+      "name": "微服务"
+    }
+  ]
+}
+```
+
+> 注：该接口会调用 DsService（DeepSeek API）根据笔记内容推荐标签，自动替换该笔记原有标签，并同步更新 Elasticsearch。
+
+### 2.9 浏览笔记 POST /api/note/view
+
+**请求方式：**
+Header: `Authorization: Bearer {token}`
+
+**请求示例：**
+```json
+{
+  "note_id": 1
+}
+```
+
+**请求参数：**
+
+| 参数    | 类型  | 必填 | 说明   |
+| ------- | ----- | ---- | ------ |
+| note_id | int64 | 是   | 笔记ID |
+
+**响应示例：**
+```json
+{
+  "code": 0,
+  "message": "浏览笔记成功",
+  "data": {}
+}
+```
+
+**说明：**
+- 记录用户浏览行为到 `user_action` 表
+- 笔记 `view_count` +1
+- 更新 `user_tag_stat` 中对应标签的浏览统计
+
+### 2.10 点赞笔记 POST /api/note/like
+
+**请求方式：**
+Header: `Authorization: Bearer {token}`
+
+**请求示例：**
+```json
+{
+  "note_id": 1
+}
+```
+
+**请求参数：**
+
+| 参数    | 类型  | 必填 | 说明   |
+| ------- | ----- | ---- | ------ |
+| note_id | int64 | 是   | 笔记ID |
+
+**响应示例（成功）：**
+```json
+{
+  "code": 0,
+  "message": "点赞笔记成功",
+  "data": {}
+}
+```
+
+**响应示例（已点赞）：**
+```json
+{
+  "code": 1,
+  "message": "已点赞过该笔记"
+}
+```
+
+**说明：**
+- 写入 `note_like` 表，重复点赞会返回错误
+- 记录用户点赞行为到 `user_action` 表
+- 笔记 `like_count` +1
+- 更新 `user_tag_stat` 中对应标签的点赞统计
+
+### 2.11 收藏笔记 POST /api/note/collect
+
+**请求方式：**
+Header: `Authorization: Bearer {token}`
+
+**请求示例：**
+```json
+{
+  "note_id": 1
+}
+```
+
+**请求参数：**
+
+| 参数    | 类型  | 必填 | 说明   |
+| ------- | ----- | ---- | ------ |
+| note_id | int64 | 是   | 笔记ID |
+
+**响应示例（成功）：**
+```json
+{
+  "code": 0,
+  "message": "收藏笔记成功",
+  "data": {}
+}
+```
+
+**响应示例（已收藏）：**
+```json
+{
+  "code": 1,
+  "message": "已收藏过该笔记"
+}
+```
+
+**说明：**
+- 写入 `note_collect` 表，重复收藏会返回错误
+- 记录用户收藏行为到 `user_action` 表
+- 笔记 `collect_count` +1
+- 更新 `user_tag_stat` 中对应标签的收藏统计
+- 收藏行为在推荐算法中权重最高
+
+### 2.12 取消点赞 DELETE /api/notes/like
+
+**请求方式：**
+Header: `Authorization: Bearer {token}`
+
+**请求参数：**
+
+| 参数    | 类型  | 必填 | 说明   |
+| ------- | ----- | ---- | ------ |
+| note_id | int64 | 是   | 笔记ID |
+
+> 参数可通过 Query String (`?note_id=1`) 或 JSON Body 传递
+
+**响应示例（成功）：**
+```json
+{
+  "code": 0,
+  "message": "取消点赞成功",
+  "data": {}
+}
+```
+
+**响应示例（未点赞）：**
+```json
+{
+  "code": 1,
+  "message": "未点赞过该笔记"
+}
+```
+
+**说明：**
+- 删除 `note_like` 表中对应记录
+- 笔记 `like_count` -1（最小为0）
+- 更新 `user_tag_stat` 中对应标签的点赞统计
+
+### 2.13 取消收藏 DELETE /api/notes/collect
+
+**请求方式：**
+Header: `Authorization: Bearer {token}`
+
+**请求参数：**
+
+| 参数    | 类型  | 必填 | 说明   |
+| ------- | ----- | ---- | ------ |
+| note_id | int64 | 是   | 笔记ID |
+
+> 参数可通过 Query String (`?note_id=1`) 或 JSON Body 传递
+
+**响应示例（成功）：**
+```json
+{
+  "code": 0,
+  "message": "取消收藏成功",
+  "data": {}
+}
+```
+
+**响应示例（未收藏）：**
+```json
+{
+  "code": 1,
+  "message": "未收藏过该笔记"
+}
+```
+
+**说明：**
+- 删除 `note_collect` 表中对应记录
+- 笔记 `collect_count` -1（最小为0）
+- 更新 `user_tag_stat` 中对应标签的收藏统计
+
+### 2.14 推荐笔记 GET /api/recommend/notes
+
+**请求方式：**
+Header: `Authorization: Bearer {token}`
+
+**请求参数：**
+
+| 参数       | 类型  | 必填 | 说明                                |
+| ---------- | ----- | ---- | ----------------------------------- |
+| page       | int   | 否   | 页码，默认1                         |
+| page_size  | int   | 否   | 每页数量，默认10，最大50            |
+
+**响应示例：**
+```json
+{
+  "code": 0,
+  "message": "获取推荐成功",
+  "data": [
+    {
+      "id": 1,
+      "title": "推荐笔记标题",
+      "summary": "笔记摘要",
+      "created_at": "2025-01-01T12:00:00",
+      "updated_at": "2025-01-01T12:00:00"
+    }
+  ]
+}
+```
+
+**说明：**
+- 基于用户画像的个性化推荐，返回公开笔记列表
+- **新用户**（最近30天行为数 < 20）：冷启动推荐
+    - 综合用户笔记标签（Top3）、最新标签（Top2）、搜索历史（Top2）、全局热门标签（Top3）
+- **老用户**（最近30天行为数 ≥ 20）：兴趣模型推荐
+    - 基于 `user_tag_stat` 行为分数：`(1×view + 3×like + 7×collect) × e^(-0.1×Δt)`
+    - 综合行为标签（Top5）、搜索历史（Top2）、全局热门标签（Top3）
+- 兜底逻辑：当标签集合为空或ES无匹配结果时，返回最近创建的公开笔记
+- 分页参数：`from = (page-1) * page_size`，`size = page_size`
 
 ---
 
@@ -398,6 +724,7 @@ Header: `Authorization: Bearer {token}`
 索引名称：`notes`
 
 文档字段映射：
+
 | 字段        | 类型       | 说明                    |
 | ----------- | ---------- | ---------------------- |
 | user_id     | long       | 用户ID，用于权限过滤     |
@@ -427,164 +754,53 @@ Header: `Authorization: Bearer {token}`
 
 ## 3. 标签与分类 API
 
-| 接口                 | 方法   | 说明        |
-| ------------------ | ---- | --------- |
-| /api/tag/create    | POST | 创建标签      |
-| /api/tag/list      | GET  | 获取标签列表    |
-| /api/tag/bind      | POST | 绑定/解除笔记标签 |
-| /api/tag/update    | POST | 更新标签      |
-| /api/tag/delete    | POST | 删除标签      |
-| /api/folder/create | POST | 创建文件夹     |
-| /api/folder/list   | GET  | 获取文件夹列表   |
-| /api/folder/update | POST | 更新文件夹     |
-| /api/folder/delete | POST | 删除文件夹     |
+| 接口                 | 方法   | 说明      |
+| ------------------ | ---- | ------- |
+| /api/tags/hot      | GET  | 获取热门标签  |
+|                    |      |         |
+| /api/folder/create | POST | 创建文件夹   |
+| /api/folder/list   | GET  | 获取文件夹列表 |
+| /api/folder/update | POST | 更新文件夹   |
+| /api/folder/delete | POST | 删除文件夹   |
 
+> **废弃说明：** 以下旧版标签接口已废弃，请使用笔记标签相关接口替代：
+> - ~~POST /api/tag/create~~
+> - ~~GET /api/tag/list~~
+> - ~~POST /api/tag/bind~~
+> - ~~POST /api/tag/update~~
+> - ~~POST /api/tag/delete~~
 
 **鉴权要求：** 所有接口均需通过 Token 鉴权
 
-### 3.1 创建标签 POST /api/tag/create
+### 3.1 获取热门标签 GET /api/tags/hot
 
 **请求方式：**
 Header: `Authorization: Bearer {token}`
 
-**请求示例：**
-```json
-{
-  "name": "工作"
-}
-```
-
-**请求参数：**
-| 参数 | 类型   | 必填 | 说明     |
-| ---- | ------ | ------ | -------- |
-| name | string | 是     | 标签名称 |
+**请求参数：** 无
 
 **响应示例：**
 ```json
 {
   "code": 0,
-  "message": "创建标签成功",
-  "data": {
-    "tag_id": 1
-  }
-}
-```
-
-### 3.2 获取标签列表 GET /api/tag/list
-
-**请求方式：**
-Header: `Authorization: Bearer {token}`
-
-**请求参数：**
-| 参数     | 类型   | 必填 | 说明                                      |
-| -------- | ------ | ------ | ----------------------------------------- |
-| note_id  | int64  | 否     | 笔记ID，不传则返回用户所有标签，传则返回该笔记关联的标签 |
-
-**响应示例：**
-```json
-{
-  "code": 0,
-  "message": "获取标签列表成功",
+  "message": "获取热门标签成功",
   "data": [
     {
-      "id": 1,
-      "name": "工作",
-      "created_at": "2025-01-01 12:00:00"
+      "tag": "Java",
+      "count": 42
     },
     {
-      "id": 2,
-      "name": "学习",
-      "created_at": "2025-01-02 14:30:00"
+      "tag": "SpringBoot",
+      "count": 35
     }
   ]
 }
 ```
 
-### 3.3 绑定笔记标签 POST /api/tag/bind
-
-**请求方式：**
-Header: `Authorization: Bearer {token}`
-
-**请求示例：**
-```json
-{
-  "note_id": 1,
-  "tag_ids": [1, 2, 3]
-}
-```
-
-**请求参数：**
-| 参数    | 类型         | 必填 | 说明                                     |
-| ------- | ------------ | ------ | ---------------------------------------- |
-| note_id | int64        | 是     | 笔记ID                                   |
-| tag_ids | array&lt;int&gt; | 否     | 标签ID数组，空数组 [] 表示清除所有标签 |
-
-**响应示例：**
-```json
-{
-  "code": 0,
-  "message": "绑定标签成功",
-  "data": {}
-}
-```
-
-> 注：该接口会先清除该笔记的所有标签，然后绑定新的标签。如需清除所有标签，传入 `tag_ids: []` 即可。
-
-### 3.4 更新标签 POST /api/tag/update
-
-**请求方式：**
-Header: `Authorization: Bearer {token}`
-
-**请求示例：**
-```json
-{
-  "tag_id": 1,
-  "name": "新标签名"
-}
-```
-
-**请求参数：**
-| 参数    | 类型   | 必填 | 说明       |
-| ------- | ------ | ------ | ---------- |
-| tag_id  | int64  | 是     | 待更新的标签ID |
-| name    | string | 是     | 新的标签名称   |
-
-**响应示例：**
-```json
-{
-  "code": 0,
-  "message": "更新标签成功",
-  "data": {}
-}
-```
-
-### 3.5 删除标签 POST /api/tag/delete
-
-**请求方式：**
-Header: `Authorization: Bearer {token}`
-
-**请求示例：**
-```json
-{
-  "tag_id": 1
-}
-```
-
-**请求参数：**
-| 参数    | 类型  | 必填 | 说明      |
-| ------- | ----- | ------ | --------- |
-| tag_id  | int64 | 是     | 待删除的标签ID |
-
-**响应示例：**
-```json
-{
-  "code": 0,
-  "message": "删除标签成功",
-  "data": {}
-}
-```
-
-> 注：删除标签时会同时清除该标签与所有笔记的关联关系
+**说明：**
+- 基于 Elasticsearch 聚合查询，统计近 7 天内公开笔记的标签使用情况
+- 返回 Top 10 热门标签及其出现次数
+- 数据来源：`notes` 索引，`tags` 字段（`keyword` 类型）
 
 ### 3.6 创建文件夹 POST /api/folder/create
 
@@ -600,6 +816,7 @@ Header: `Authorization: Bearer {token}`
 ```
 
 **请求参数：**
+
 | 参数       | 类型  | 必填 | 说明                     |
 | ---------- | ----- | ------ | ------------------------ |
 | name       | string | 是     | 文件夹名称               |
@@ -631,6 +848,7 @@ Header: `Authorization: Bearer {token}`
 ```
 
 **请求参数：**
+
 | 参数       | 类型   | 必填 | 说明                                 |
 | ---------- | ------ | ------ | ------------------------------------ |
 | folder_id  | int64  | 是     | 待更新的文件夹ID                        |
@@ -661,6 +879,7 @@ Header: `Authorization: Bearer {token}`
 ```
 
 **请求参数：**
+
 | 参数      | 类型  | 必填 | 说明       |
 | --------- | ----- | ------ | ---------- |
 | folder_id | int64 | 是     | 待删除的文件夹ID |
@@ -682,6 +901,7 @@ Header: `Authorization: Bearer {token}`
 Header: `Authorization: Bearer {token}`
 
 **请求参数：**
+
 | 参数       | 类型   | 必填 | 说明                                   |
 | ---------- | ------ | ------ | -------------------------------------- |
 | folder_id | int64  | 否     | 父文件夹ID，0表示获取根级文件夹（不传默认为0） |
@@ -715,13 +935,13 @@ Header: `Authorization: Bearer {token}`
 
 ## 4. 文件管理 API
 
-| 接口               | 方法   | 说明              | 附加参数             |
-| ---------------- | ---- | --------------- | ---------------- |
-| /api/file/upload | POST | 上传文件到 MinIO     | 支持 multipart     |
-| /api/file/list   | GET  | 获取文件列表          | user_id, note_id |
-| /api/file/delete | POST | 删除文件（MinIO+数据库） |                  |
-| /api/file/status | GET  | 查询文件上传状态        | file_id          |
-| /api/file/info   | GET  | 获取单个文件详情        | file_id          |
+| 接口                | 方法   | 说明                    | 附加参数           |
+| ------------------ | ---- | ---------------------- | ----------------- |
+| /api/file/upload   | POST | 上传文件到 MinIO        | 支持 multipart      |
+| /api/file/list     | GET  | 获取文件列表             | user_id, note_id    |
+| /api/file/delete   | POST | 删除文件（MinIO+数据库） |                    |
+| /api/file/status   | GET  | 查询文件上传状态          | file_id             |
+| /api/file/info     | GET  | 获取单个文件详情          | file_id             |
 
 **鉴权要求：** 所有文件接口均需通过 Token 鉴权
 
@@ -729,8 +949,8 @@ Header: `Authorization: Bearer {token}`
 
 ```
 ┌─────────────┐      ┌─────────────┐      ┌─────────────┐
-│   前端上传   │ ──▶ │   Drogon    │ ──▶ │   MariaDB   │
-│  (multipart)│      │  (异步处理)  │      │ (元数据记录) │
+│   前端上传   │ ──▶  │   Drogon    │ ──▶  │   MariaDB   │
+│  (multipart)│      │  (异步处理)  │      │ (元数据记录)  │
 └─────────────┘      └──────┬──────┘      └─────────────┘
                             │
                             ▼
@@ -760,6 +980,7 @@ Header: `Authorization: Bearer {token}`
 Content-Type: `multipart/form-data`
 
 **请求参数：**
+
 | 参数     | 类型   | 必填 | 说明                      |
 | -------- | ------ | ---- | ------------------------- |
 | file     | file   | 是   | 要上传的文件               |
@@ -796,6 +1017,7 @@ curl -X POST http://localhost:8080/api/file/upload \
 Header: `Authorization: Bearer {token}`
 
 **请求参数：**
+
 | 参数     | 类型   | 必填 | 说明                              |
 | -------- | ------ | ---- | --------------------------------- |
 | user_id  | int64  | 否   | 用户ID（不传则使用当前登录用户）   |
@@ -858,6 +1080,7 @@ Header: `Authorization: Bearer {token}`
 ```
 
 **请求参数：**
+
 | 参数    | 类型  | 必填 | 说明     |
 | ------- | ----- | ---- | -------- |
 | file_id | int64 | 是   | 文件ID   |
@@ -896,6 +1119,7 @@ Header: `Authorization: Bearer {token}`
 Header: `Authorization: Bearer {token}`
 
 **请求参数：**
+
 | 参数    | 类型   | 必填 | 说明   |
 | ------- | ------ | ---- | ------ |
 | file_id | string | 是   | 文件ID |
@@ -954,6 +1178,7 @@ Header: `Authorization: Bearer {token}`
 Header: `Authorization: Bearer {token}`
 
 **请求参数：**
+
 | 参数    | 类型   | 必填 | 说明   |
 | ------- | ------ | ---- | ------ |
 | file_id | string | 是   | 文件ID |
@@ -1007,6 +1232,7 @@ Header: `Authorization: Bearer {token}`
 Content-Type: `multipart/form-data`
 
 **请求参数：**
+
 | 参数   | 类型   | 必填 | 说明                      |
 | ------ | ------ | ---- | ------------------------- |
 | file   | file   | 是   | 要识别的文件（图片或PDF） |
@@ -1050,6 +1276,7 @@ curl -X POST http://localhost:8080/api/ocr/recognize \
 Header: `Authorization: Bearer {token}`
 
 **请求参数：**
+
 | 参数    | 类型   | 必填 | 说明   |
 | ------- | ------ | ---- | ------ |
 | file_id | string | 是   | 文件ID |
