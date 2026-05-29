@@ -1,6 +1,6 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
-    <style name="Theme.Notes" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+    <style name="Theme.Notes" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Everforest 主色（柔和自然绿） -->
         <item name="colorPrimary">#A7C080</item>
         <item name="colorPrimaryVariant">#8DA574</item>
@@ -12,7 +12,7 @@
         <item name="colorOnSecondary">#2D353A</item>
 
         <!-- 状态栏颜色（Everforest 深绿，不刺眼） -->
-        <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
+        <item name="android:statusBarColor">#FFFFFF</item>
 
         <!-- 状态栏文字自动适配深色/浅色 -->
         <item name="android:windowLightStatusBar" tools:targetApi="m">true</item>
